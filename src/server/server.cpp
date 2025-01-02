@@ -1,5 +1,6 @@
 #include "server.hpp"
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/epoll.h>
@@ -42,12 +43,19 @@ int server::handleRequests() {
       return -1;
     for (int i = 0; i < n; ++i) {
       int event_fd = this->events[i].data.fd;
+      /**
+       * This is needed only to make event_fd non-blocking.
+       * After it, when we use read, it doesn't just hang onto the socket
+       * and block the further execution, but returns if there's no data
+       */
+      fcntl(event_fd, F_SETFL, fcntl(event_fd, F_GETFL, 0) | O_NONBLOCK);
       if (event_fd == this->srvfd) {
         int clntfd = accept(this->srvfd, NULL, NULL);
         if (clntfd == -1)
           return -1;
         addEpollEvent(clntfd);
       } else {
+        std::string req;
         char buffer[BUFFER_SIZE];
         int nbts = read(event_fd, buffer, BUFFER_SIZE - 1);
         if (nbts <= 0) {
@@ -55,7 +63,13 @@ int server::handleRequests() {
           removeEpollEvent(event_fd);
         } else {
           buffer[nbts] = '\0';
-          std::cout << "Received: " << buffer << std::endl;
+          req = buffer;
+          while ((nbts = read(event_fd, buffer, BUFFER_SIZE - 1)) > 0) {
+            buffer[nbts] = '\0';
+            req += buffer;
+          }
+          std::cout << "nbts was the last time equal to " << nbts << std::endl;
+          std::cout << "Received: " << req << std::endl;
           const char *response = "HTTP/1.1 200 OK\r\n"
                                  "Content-Length: 13\r\n"
                                  "Content-Type: text/plain\r\n"
