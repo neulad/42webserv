@@ -41,17 +41,18 @@ int server::handleRequests() {
     if (n == -1)
       return -1;
     for (int i = 0; i < n; ++i) {
-      if (this->events[i].data.fd == this->srvfd) {
+      int event_fd = this->events[i].data.fd;
+      if (event_fd == this->srvfd) {
         int clntfd = accept(this->srvfd, NULL, NULL);
         if (clntfd == -1)
           return -1;
         addEpollEvent(clntfd);
       } else {
         char buffer[BUFFER_SIZE];
-        int nbts = read(this->events[i].data.fd, buffer, BUFFER_SIZE - 1);
+        int nbts = read(event_fd, buffer, BUFFER_SIZE - 1);
         if (nbts <= 0) {
-          close(this->events[i].data.fd);
-          removeEpollEvent(this->events[i].data.fd);
+          close(event_fd);
+          removeEpollEvent(event_fd);
         } else {
           buffer[nbts] = '\0';
           std::cout << "Received: " << buffer << std::endl;
@@ -60,9 +61,9 @@ int server::handleRequests() {
                                  "Content-Type: text/plain\r\n"
                                  "\r\n"
                                  "Hello, world!";
-          write(events[i].data.fd, response, strlen(response));
-          close(events[i].data.fd);
-          removeEpollEvent(events[i].data.fd);
+          write(event_fd, response, strlen(response));
+          close(event_fd);
+          removeEpollEvent(event_fd);
         }
       }
     }
