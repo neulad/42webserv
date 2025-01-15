@@ -3,7 +3,7 @@
 #define MAX_EVENTS 10
 
 class server {
-private:
+ private:
   int srvfd;
   int epollfd;
   struct epoll_event events[MAX_EVENTS];
@@ -12,7 +12,7 @@ private:
   void removeEpollEvent(int fd);
   int handleRequests();
 
-public:
+ public:
   server();
   server(server const &srv);
   server operator=(server const &srv);
