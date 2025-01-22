@@ -5,10 +5,14 @@
 #include <cstdio>
 #include <cstring>
 
+#include "http/http.hpp"
 #include "server/server.hpp"
 
 int main() {
-  server srv;
-  if (srv.listenAndServe() == -1) return perror("Error on the server: "), 1;
+  srvparams params = {false};
+  server srv(8080, params);
+
+  if (srv.listenAndServe() == -1)
+    return perror("Error on the server: "), 1;
   return 0;
 }

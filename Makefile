@@ -1,7 +1,8 @@
 NAME := webserv
 CPP_FLAGS := -Wall -Wextra -Werror -std=c++98
 
-SRC := src/main.cpp src/server/server.cpp
+SRC := src/main.cpp src/server/server.cpp \
+	src/http/http.cpp
 OBJS := $(SRC:.cpp=.o)
 
 all: $(NAME)
@@ -17,7 +18,9 @@ clean:
 fclean: clean
 	rm -rf $(NAME)
 re: fclean all
+test:
+	c++ $(shell find . -type f -name "*.cpp") -g -o test
 
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re test
 
 
