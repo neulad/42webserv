@@ -84,9 +84,12 @@ std::string http::toLowerCaseCopy(const std::string &str) {
   }
   return lowerStr;
 }
+/**
+ * /Utility functions
+ */
 
 /**
- * Canonical form
+ * System
  */
 http::request::request(const std::string &raw_req) {
   int cursor = 0;
@@ -106,9 +109,8 @@ http::request::request(const std::string &raw_req) {
       break;
 
     std::vector<std::string> tokens = splitByColon(line);
-    if (tokens.size() != 2) {
+    if (tokens.size() != 2)
       throw std::invalid_argument("malformed header");
-    }
 
     this->headers.push_back(std::make_pair(tokens[0], tokens[1]));
   }
@@ -120,7 +122,13 @@ http::request::request(const std::string &raw_req) {
   }
 }
 http::request::~request() {}
+/**
+ * /System
+ */
 
+/**
+ * Logic
+ */
 std::string http::request::getMethod() const { return this->method; }
 std::string http::request::getProtocol() const { return this->protocol; }
 std::string http::request::getUrl() const { return this->url; }
@@ -139,3 +147,6 @@ const std::vector<std::pair<std::string, std::string> > &
 http::request::getAllHeaders() const {
   return headers;
 }
+/**
+ * /Logic
+ */

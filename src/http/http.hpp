@@ -24,12 +24,13 @@ public:
   const std::string &getBody() const;
 
   request(std::string const &raw_req);
-  request(request const &req);
-  request operator=(request const &req);
   ~request();
 };
 class response {};
 
+/**
+ * Utility functions
+ */
 bool onlySpaces(std::string const &str);
 std::string toLowerCaseCopy(const std::string &str);
 std::string trim(const std::string &str);

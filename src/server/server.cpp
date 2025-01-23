@@ -1,18 +1,15 @@
 #include "server.hpp"
-
+#include "../http/request.hpp"
 #include <csignal>
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-
-#include "../http/http.hpp"
 
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
@@ -62,7 +59,9 @@ void server::removeEpollEvent(int fd) {
 }
 
 int server::handleRequests() {
+  RequestFactory reqfac;
   std::signal(SIGINT, server::handleSignals);
+
   while (!stop_proc) {
     int n = epoll_wait(this->epollfd, this->events, MAX_EVENTS, -1);
     if (stop_proc)
@@ -71,64 +70,70 @@ int server::handleRequests() {
       return -1;
     for (int i = 0; i < n; ++i) {
       int event_fd = this->events[i].data.fd;
-      /**
-       * This is needed only to make event_fd non-blocking.
-       * After it, when we use read, it doesn't just hang onto the socket
-       * and block the further execution, but returns if there's no data
-       */
+
       fcntl(event_fd, F_SETFL, fcntl(event_fd, F_GETFL, 0) | O_NONBLOCK);
+
       if (event_fd == this->srvfd) {
         int clntfd = accept(this->srvfd, NULL, NULL);
         if (clntfd == -1)
-          return -1;
+          continue;
         addEpollEvent(clntfd);
-      } else {
-        char buffer[BUFFER_SIZE];
-        int nbts = read(event_fd, buffer, BUFFER_SIZE - 1);
-        if (nbts <= 0) {
-          close(event_fd);
-          removeEpollEvent(event_fd);
-        } else {
-          /**
-           * This is the part where
-           * the request gets handled
-           * in this part we deal with raw http
-           * messages, and we read from the socket unless there's no more data
-           * sent by the client, and then we put it all in one string called req
-           */
-          std::string raw_req;
-          buffer[nbts] = '\0';
-          raw_req = buffer;
-          while ((nbts = read(event_fd, buffer, BUFFER_SIZE - 1)) > 0) {
-            buffer[nbts] = '\0';
-            raw_req += buffer;
-          }
-          /**
-           * The request processing happens here
-           */
-          http::request req(raw_req);
-          std::cout << req.getUrl() + " " + req.getMethod() + " " +
-                           req.getProtocol()
-                    << std::endl;
-          // clang-format off
-          std::vector<std::pair<std::string, std::string> > allHeaders =
-              req.getAllHeaders();
-          // clang-format on
-          std::cout << allHeaders[0].first + " " + allHeaders[0].second
-                    << std::endl;
-          std::cout << allHeaders[1].first + " " + allHeaders[1].second
-                    << std::endl;
-          std::cout << req.getBody() << std::endl;
-          const char *response = "HTTP/1.1 200 OK\r\n"
-                                 "Content-Length: 13\r\n"
-                                 "Content-Type: text/plain\r\n"
-                                 "\r\n"
-                                 "Hello, world!";
-          write(event_fd, response, strlen(response));
-          close(event_fd);
-          removeEpollEvent(event_fd);
-        }
+        continue;
       }
+      char buffer[2];
+      if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
+        close(event_fd);
+        removeEpollEvent(event_fd);
+        // TODO: Remove request if it was not finished from
+      }
+      // Request const *req;
+      // if (reqfac.ifExists(event_fd))
+      //   req = &reqfac.getRequest(event_fd);
+      // if (nbts <= 0) {
+      //   close(event_fd);
+      //   removeEpollEvent(event_fd);
+      // } else {
+      //   /**
+      //    * This is the part where
+      //    * the request gets handled
+      //    * in this part we deal with raw http
+      //    * messages, and we read from the socket unless there's no more
+      //    data
+      //    * sent by the client, and then we put it all in one string called
+      //    req
+      //    */
+      //   std::string raw_req;
+      //   buffer[nbts] = '\0';
+      //   raw_req = buffer;
+      //   while ((nbts = read(event_fd, buffer, BUFFER_SIZE - 1)) > 0) {
+      //     buffer[nbts] = '\0';
+      //     raw_req += buffer;
+      //   }
+      //   /**
+      //    * The request processing happens here
+      //    */
+      //   http::request req(raw_req);
+      //   std::cout << req.getUrl() + " " + req.getMethod() + " " +
+      //                    req.getProtocol()
+      //             << std::endl;
+      //   // clang-format off
+      //   std::vector<std::pair<std::string, std::string> > allHeaders =
+      //       req.getAllHeaders();
+      //   // clang-format on
+      //   std::cout << allHeaders[0].first + " " + allHeaders[0].second
+      //             << std::endl;
+      //   std::cout << allHeaders[1].first + " " + allHeaders[1].second
+      //             << std::endl;
+      //   std::cout << req.getBody() << std::endl;
+      //   const char *response = "HTTP/1.1 200 OK\r\n"
+      //                          "Content-Length: 13\r\n"
+      //                          "Content-Type: text/plain\r\n"
+      //                          "\r\n"
+      //                          "Hello, world!";
+      //   write(event_fd, response, strlen(response));
+      //   close(event_fd);
+      //   removeEpollEvent(event_fd);
+      // }      }
     }
   }
   return 1;
@@ -177,6 +182,7 @@ int server::listenAndServe() {
    */
   if (addEpollEvent(this->srvfd) == -1)
     return -1;
+  std::cout << "Server is listening on port :" << this->port << std::endl;
   if (handleRequests() == -1)
     return -1;
   return 0;
