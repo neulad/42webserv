@@ -1,5 +1,5 @@
 #include "server.hpp"
-#include "../http/request.hpp"
+#include "../http/RequestFactory.hpp"
 #include <csignal>
 #include <cstddef>
 #include <cstdlib>
@@ -80,19 +80,22 @@ int server::handleRequests() {
         addEpollEvent(clntfd);
         continue;
       }
-      char buffer[2];
-      if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
-        close(event_fd);
-        removeEpollEvent(event_fd);
-        // TODO: Remove request if it was not finished from
+      // Check if the client has sent a FIN package
+      {
+        char buffer[1];
+        if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
+          close(event_fd);
+          removeEpollEvent(event_fd);
+          // TODO: Remove request if it was not finished from
+          continue;
+        }
       }
-      // Request const *req;
-      // if (reqfac.ifExists(event_fd))
-      //   req = &reqfac.getRequest(event_fd);
-      // if (nbts <= 0) {
-      //   close(event_fd);
-      //   removeEpollEvent(event_fd);
-      // } else {
+
+      Request *req;
+      if (!reqfac.ifExists(event_fd))
+        reqfac.setRequest(Request(), event_fd);
+      req = &reqfac.getRequest(event_fd);
+      req->handleData(event_fd);
       //   /**
       //    * This is the part where
       //    * the request gets handled
