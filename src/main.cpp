@@ -5,11 +5,10 @@
 #include <cstdio>
 #include <cstring>
 
-#include "http/http.hpp"
 #include "server/server.hpp"
 
 int main() {
-  srvparams params = {false};
+  srvparams params = {false, 4000};
   server srv(8080, params);
 
   if (srv.listenAndServe() == -1)

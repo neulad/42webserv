@@ -1,13 +1,31 @@
-#include <string>
-#include <vector>
+#include "utils.hpp"
+#include <sstream>
 
-namespace utils {
-bool onlySpaces(std::string const &str);
-std::string toLowerCaseCopy(const std::string &str);
-std::string trim(const std::string &str);
-std::vector<std::string> splitByColon(const std::string &line);
-std::string join(const std::vector<std::string> &tokens, char delim,
-                 unsigned int start, unsigned int end);
-std::vector<std::string> splitBySpace(const std::string &line);
-std::string readLine(const std::string &raw_req, int &cursor);
-} // namespace utils
+std::vector<std::string> utils::splitBeforeNewline(std::string const &str,
+                                                   size_t const cursor) {
+  if (cursor == str.size())
+    return std::vector<std::string>();
+  std::vector<std::string> result;
+  size_t newline_pos = str.find(cursor, '\n');
+  std::string part = str.substr(cursor, newline_pos);
+
+  std::istringstream iss(part);
+  std::string word;
+  while (iss >> word) {
+    result.push_back(word);
+  }
+
+  return result;
+}
+
+bool utils::iCompare(const std::string &str1, const std::string &str2) {
+  if (str1.length() != str2.length()) {
+    return false;
+  }
+  for (size_t i = 0; i < str1.length(); ++i) {
+    if (tolower(str1[i]) != tolower(str2[i])) {
+      return false;
+    }
+  }
+  return true;
+}

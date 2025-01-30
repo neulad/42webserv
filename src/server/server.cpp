@@ -1,5 +1,5 @@
 #include "server.hpp"
-#include "../http/RequestFactory.hpp"
+#include "RequestFactory.hpp"
 #include <csignal>
 #include <cstddef>
 #include <cstdlib>
@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
+#include <stdexcept>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -70,6 +71,7 @@ int server::handleRequests() {
       return -1;
     for (int i = 0; i < n; ++i) {
       int event_fd = this->events[i].data.fd;
+      char *buffer = new char[params.buffer_size];
 
       fcntl(event_fd, F_SETFL, fcntl(event_fd, F_GETFL, 0) | O_NONBLOCK);
 
@@ -81,21 +83,18 @@ int server::handleRequests() {
         continue;
       }
       // Check if the client has sent a FIN package
-      {
-        char buffer[1];
-        if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
-          close(event_fd);
-          removeEpollEvent(event_fd);
-          // TODO: Remove request if it was not finished from
-          continue;
-        }
+      if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
+        close(event_fd);
+        removeEpollEvent(event_fd);
+        // TODO: Remove request if it was not finished from
+        continue;
       }
 
       Request *req;
       if (!reqfac.ifExists(event_fd))
         reqfac.setRequest(Request(), event_fd);
       req = &reqfac.getRequest(event_fd);
-      req->handleData(event_fd);
+      req->handleData(event_fd, buffer, params.buffer_size);
       //   /**
       //    * This is the part where
       //    * the request gets handled
@@ -201,6 +200,10 @@ void server::stop() {
 
 server::server(int port, srvparams const &params)
     : srvfd(-1), port(port), epollfd(-1), stop_proc(false), params(params) {
+  for (size_t i = 0; i < servers.size(); ++i) {
+    if (servers[i]->port == port)
+      throw std::logic_error("Ports must be different for each server");
+  }
   this->servers.push_back(this);
 }
 server::~server() {

@@ -1,4 +1,5 @@
 #include "RequestFactory.hpp"
+#include <stdexcept>
 
 /**
  * RequestFactory
@@ -6,12 +7,12 @@
 bool RequestFactory::ifExists(int fd) {
   return requests.end() != requests.find(fd);
 }
-Request &RequestFactory::getRequest(int fd) {
+server::Request &RequestFactory::getRequest(int fd) {
   if (ifExists(fd))
     return requests[fd];
   throw std::runtime_error("Request not found");
 }
-void RequestFactory::setRequest(Request const &req, int fd) {
+void RequestFactory::setRequest(server::Request const &req, int fd) {
   if (!ifExists(fd))
     requests[fd] = req;
 }
