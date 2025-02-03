@@ -1,4 +1,6 @@
 #include "utils.hpp"
+#include <cstddef>
+#include <cstring>
 #include <sstream>
 
 std::vector<std::string> utils::splitBeforeNewline(std::string const &str,
@@ -28,4 +30,36 @@ bool utils::iCompare(const std::string &str1, const std::string &str2) {
     }
   }
   return true;
+}
+
+bool utils::seqPresent(char const *seq, ...) {
+  va_list args;
+  va_start(args, seq);
+
+  char *curr;
+  int reps = strlen(seq);
+  int count = 0;
+  while ((curr = va_arg(args, char *)) != NULL) {
+    while (*curr) {
+      if (seq[count] == *curr++)
+        ++count;
+      else
+        count = 0;
+      if (count == reps)
+        return va_end(args), true;
+    }
+  }
+  va_end(args);
+  return false;
+}
+
+bool utils::anyPresent(char const *any, char *str) {
+  size_t anylen = strlen(any);
+  while (*str)
+    for (size_t i = 0; i < anylen; ++i) {
+      if (any[i] == *str)
+        return true;
+      ++str;
+    }
+  return false;
 }

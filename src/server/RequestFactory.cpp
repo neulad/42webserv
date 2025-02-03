@@ -7,19 +7,22 @@
 bool RequestFactory::ifExists(int fd) {
   return requests.end() != requests.find(fd);
 }
-server::Request &RequestFactory::getRequest(int fd) {
+http::Request &RequestFactory::getRequest(int fd) {
   if (ifExists(fd))
-    return requests[fd];
+    return *requests[fd];
   throw std::runtime_error("Request not found");
 }
-void RequestFactory::setRequest(server::Request const &req, int fd) {
+void RequestFactory::setRequest(http::Request *req, int fd) {
   if (!ifExists(fd))
     requests[fd] = req;
 }
 void RequestFactory::deleteRequest(int fd) { requests.erase(fd); }
 
 RequestFactory::RequestFactory() {}
-RequestFactory::~RequestFactory() {}
+RequestFactory::~RequestFactory() {
+  for (size_t i = 0; i < this->requests.size(); ++i)
+    delete this->requests[i];
+}
 /**
  * /RequestFactory
  */

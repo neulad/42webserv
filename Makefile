@@ -2,7 +2,7 @@ NAME := webserv
 CPP_FLAGS := -Wall -Wextra -Werror -std=c++98
 
 SRC := src/main.cpp src/server/server.cpp \
-	src/server/Request.cpp src/server/RequestFactory.cpp \
+	src/http/http.cpp src/server/RequestFactory.cpp \
 	src/utils/utils.cpp
 OBJS := $(SRC:.cpp=.o)
 

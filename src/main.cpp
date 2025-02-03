@@ -8,7 +8,7 @@
 #include "server/server.hpp"
 
 int main() {
-  srvparams params = {false, 4000};
+  srvparams params;
   server srv(8080, params);
 
   if (srv.listenAndServe() == -1)

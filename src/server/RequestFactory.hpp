@@ -1,16 +1,16 @@
 #pragma once
 
-#include "server.hpp"
+#include "../http/http.hpp"
 #include <map>
 
 class RequestFactory {
 private:
-  std::map<int, server::Request> requests;
+  std::map<int, http::Request *> requests;
 
 public:
   bool ifExists(int fd);
-  server::Request &getRequest(int fd);
-  void setRequest(server::Request const &req, int fd);
+  http::Request &getRequest(int fd);
+  void setRequest(http::Request *req, int fd);
   void deleteRequest(int fd);
   RequestFactory();
   ~RequestFactory();

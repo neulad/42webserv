@@ -64,17 +64,17 @@ int server::handleRequests() {
   std::signal(SIGINT, server::handleSignals);
 
   while (!stop_proc) {
-    int n = epoll_wait(this->epollfd, this->events, MAX_EVENTS, -1);
+    int n = epoll_wait(this->epollfd, this->events,
+                       this->params.worker_connections, -1);
     if (stop_proc)
       break;
     if (n == -1)
       return -1;
     for (int i = 0; i < n; ++i) {
       int event_fd = this->events[i].data.fd;
-      char *buffer = new char[params.buffer_size];
-
       fcntl(event_fd, F_SETFL, fcntl(event_fd, F_GETFL, 0) | O_NONBLOCK);
 
+      // Check if it is a request for connection or new data
       if (event_fd == this->srvfd) {
         int clntfd = accept(this->srvfd, NULL, NULL);
         if (clntfd == -1)
@@ -82,19 +82,27 @@ int server::handleRequests() {
         addEpollEvent(clntfd);
         continue;
       }
-      // Check if the client has sent a FIN package
-      if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
-        close(event_fd);
-        removeEpollEvent(event_fd);
-        // TODO: Remove request if it was not finished from
-        continue;
-      }
+      // /Check if it is a request for connection or new data
 
-      Request *req;
+      // Check if the client has sent a FIN package
+      {
+        char buffer[1];
+        if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
+          close(event_fd);
+          removeEpollEvent(event_fd);
+          // TODO: Remove request if it was not finished from
+          continue;
+        }
+      }
+      // /Check if the client has sent a FIN package
+
+      http::Request *req;
       if (!reqfac.ifExists(event_fd))
-        reqfac.setRequest(Request(), event_fd);
+        reqfac.setRequest(new http::Request(this->params), event_fd);
       req = &reqfac.getRequest(event_fd);
-      req->handleData(event_fd, buffer, params.buffer_size);
+      req->handleData(event_fd, this->params);
+      std::cout << "is req set to done: " << req->header_buffer.isFull()
+                << std::endl;
       //   /**
       //    * This is the part where
       //    * the request gets handled
@@ -127,13 +135,13 @@ int server::handleRequests() {
       //   std::cout << allHeaders[1].first + " " + allHeaders[1].second
       //             << std::endl;
       //   std::cout << req.getBody() << std::endl;
-      //   const char *response = "HTTP/1.1 200 OK\r\n"
-      //                          "Content-Length: 13\r\n"
-      //                          "Content-Type: text/plain\r\n"
-      //                          "\r\n"
-      //                          "Hello, world!";
-      //   write(event_fd, response, strlen(response));
-      //   close(event_fd);
+      const char *response = "HTTP/1.1 200 OK\r\n"
+                             "Content-Length: 13\r\n"
+                             "Content-Type: text/plain\r\n"
+                             "\r\n"
+                             "Hello, world!";
+      write(event_fd, response, strlen(response));
+      close(event_fd);
       //   removeEpollEvent(event_fd);
       // }      }
     }
@@ -198,17 +206,21 @@ void server::stop() {
     close(this->epollfd);
 }
 
+// Constructors
 server::server(int port, srvparams const &params)
     : srvfd(-1), port(port), epollfd(-1), stop_proc(false), params(params) {
   for (size_t i = 0; i < servers.size(); ++i) {
     if (servers[i]->port == port)
       throw std::logic_error("Ports must be different for each server");
   }
+  this->events = new epoll_event[params.worker_connections];
   this->servers.push_back(this);
 }
 server::~server() {
   this->stop();
+  delete this->events;
   for (size_t i = 0; i < this->servers.size(); ++i)
     if (this == this->servers[i])
       this->servers.erase(this->servers.begin() + i);
 }
+// /Constructors

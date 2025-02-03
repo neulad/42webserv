@@ -1,14 +1,18 @@
 #pragma once
 
-#include <string>
 #include <sys/epoll.h>
 #include <vector>
 
-#define MAX_EVENTS 10
-
+/**
+ * Many names here come from NGINX
+ */
 typedef struct s_srvparams {
   bool production;
-  int buffer_size;
+  int client_header_buffer_size;
+  int worker_connections;
+  s_srvparams()
+      : production(false), client_header_buffer_size(1024),
+        worker_connections(512) {}
 } srvparams;
 
 class server {
@@ -18,7 +22,7 @@ private:
   int epollfd;
   bool stop_proc;
   static std::vector<server *> servers;
-  struct epoll_event events[MAX_EVENTS];
+  struct epoll_event *events;
   int bindSocket();
   int addEpollEvent(int fd);
   void removeEpollEvent(int fd);
@@ -26,28 +30,6 @@ private:
   static void handleSignals(int signal);
 
 public:
-  class Request {
-  private:
-    std::string method;
-    bool methodReady;
-    std::string url;
-    bool urlReady;
-    std::string protocol;
-    bool protocolReady;
-    // clang-format off
-  std::vector<std::pair<std::string, std::string> > headers;
-    // clang-format on
-    bool headersReady;
-    bool bodyReady;
-    // TODO: add body class and keep it's instance here
-
-  public:
-    void handleData(int fd, char *buffer, int buffer_size);
-    Request();
-    Request &operator=(Request const &req);
-    ~Request();
-  };
-
   server(int port, srvparams const &params);
   ~server();
 
