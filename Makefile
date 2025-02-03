@@ -20,7 +20,7 @@ fclean: clean
 	rm -rf $(NAME)
 re: fclean all
 test:
-	c++ $(shell find . -type f -name "*.cpp") -g -o test
+	c++ $(SRC) -g -o test
 
 .PHONY: all clean fclean re test
 

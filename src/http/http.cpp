@@ -35,19 +35,33 @@ void http::webbuf::readBuf(int fd) {
 }
 // /Buffer
 
+// Request
 http::Request::Request(srvparams const &params)
-    : header_buffer(params.client_header_buffer_size) {}
+    : buffers_status(http::NOTHING_DONE), request_line_len(0),
+      header_buffer(params.client_header_buffer_size) {}
 http::Request::~Request() {}
 
 void http::Request::handleData(int fd, srvparams const &params) {
+  // TODO: handling parsing
+  // TODO: body handling if it fits into header buffer
   if (!header_buffer.isFull()) {
     header_buffer.readBuf(fd);
     if (utils::seqPresent((char *)"\r\n\r\n", header_buffer.getBuffer())) {
       header_buffer.setFull();
-    } else if (!utils::anyPresent((char *)"\n\r", header_buffer.getBuffer() +
-                                                      header_buffer.getSize() -
-                                                      1))
-      throw http::HttpError("");
+      parsing_status = HEADERS_DONE;
+      // TODO: ADD \0 THAT it's the end of the buffer, the rest to the body
+      // class
+    } else if (buffers_status == NOTHING_DONE) {
+      char *nloc = strchr(header_buffer.getBuffer() + request_line_len, '\n');
+      if (nloc != NULL) {
+        buffers_status = REQUEST_LINE_DONE;
+        request_line_len = nloc - header_buffer.getBuffer();
+      } else {
+        request_line_len = header_buffer.getEnd();
+      }
+      // TODO: if request_line_len > LARGE_BUFFER_SIZE return 414
+    }
   } else {
   }
 }
+// /Request

@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <string>
 #include <vector>
+#pragma once
 
 namespace utils {
 std::vector<std::string> splitBeforeNewline(std::string const &str,

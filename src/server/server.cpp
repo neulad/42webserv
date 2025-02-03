@@ -177,7 +177,7 @@ int server::listenAndServe() {
   if (bindSocket() == -1)
     return -1;
   // Now listen to the incoming connections
-  if (listen(this->srvfd, MAX_EVENTS) == -1)
+  if (listen(this->srvfd, params.worker_connections) == -1)
     return -1;
   if ((this->epollfd = epoll_create1(0)) == -1)
     return -1;
