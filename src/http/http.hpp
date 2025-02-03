@@ -127,13 +127,13 @@ private:
   std::string uri;
   std::string http_version;
   // Utils
-  RequestStatus buffers_status;
   RequestStatus parsing_status;
-  int request_line_len;
   // /Utils
 
 public:
   void handleData(int fd, srvparams const &params);
+  RequestStatus buffers_status;
+  int request_line_len;
   webbuf header_buffer;
   Request(srvparams const &params);
   Request &operator=(Request const &req);

@@ -46,6 +46,7 @@ void http::Request::handleData(int fd, srvparams const &params) {
   // TODO: body handling if it fits into header buffer
   if (!header_buffer.isFull()) {
     header_buffer.readBuf(fd);
+    // TODO: we will have to check for this line in all of the buffers.
     if (utils::seqPresent((char *)"\r\n\r\n", header_buffer.getBuffer())) {
       header_buffer.setFull();
       parsing_status = HEADERS_DONE;
@@ -60,8 +61,9 @@ void http::Request::handleData(int fd, srvparams const &params) {
         request_line_len = header_buffer.getEnd();
       }
       // TODO: if request_line_len > LARGE_BUFFER_SIZE return 414
+      if (request_line_len > params.large_client_header_buffers_size)
+        throw http::HttpError(http::URITooLong);
     }
-  } else {
   }
 }
 // /Request

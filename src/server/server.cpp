@@ -101,8 +101,6 @@ int server::handleRequests() {
         reqfac.setRequest(new http::Request(this->params), event_fd);
       req = &reqfac.getRequest(event_fd);
       req->handleData(event_fd, this->params);
-      std::cout << "is req set to done: " << req->header_buffer.isFull()
-                << std::endl;
       //   /**
       //    * This is the part where
       //    * the request gets handled
@@ -142,7 +140,7 @@ int server::handleRequests() {
                              "Hello, world!";
       write(event_fd, response, strlen(response));
       close(event_fd);
-      //   removeEpollEvent(event_fd);
+      removeEpollEvent(event_fd);
       // }      }
     }
   }
