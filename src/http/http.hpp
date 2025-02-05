@@ -133,7 +133,7 @@ private:
 public:
   void handleData(int fd, srvparams const &params);
   RequestStatus buffers_status;
-  int request_line_len;
+  int line_len;
   webbuf header_buffer;
   Request(srvparams const &params);
   Request &operator=(Request const &req);

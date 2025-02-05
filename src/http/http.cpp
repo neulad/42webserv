@@ -49,19 +49,19 @@ void http::Request::handleData(int fd, srvparams const &params) {
     // TODO: we will have to check for this line in all of the buffers.
     if (utils::seqPresent((char *)"\r\n\r\n", header_buffer.getBuffer())) {
       header_buffer.setFull();
-      parsing_status = HEADERS_DONE;
+      buffers_status = HEADERS_DONE;
       // TODO: ADD \0 THAT it's the end of the buffer, the rest to the body
       // class
-    } else if (buffers_status == NOTHING_DONE) {
-      char *nloc = strchr(header_buffer.getBuffer() + request_line_len, '\n');
+    }
+    if (buffers_status == NOTHING_DONE) {
+      char *nloc = strchr(header_buffer.getBuffer() + line_len, '\n');
       if (nloc != NULL) {
         buffers_status = REQUEST_LINE_DONE;
-        request_line_len = nloc - header_buffer.getBuffer();
+        line_len = nloc - header_buffer.getBuffer();
       } else {
-        request_line_len = header_buffer.getEnd();
+        line_len = header_buffer.getEnd();
       }
-      // TODO: if request_line_len > LARGE_BUFFER_SIZE return 414
-      if (request_line_len > params.large_client_header_buffers_size)
+      if (line_len > params.large_client_header_buffers_size)
         throw http::HttpError(http::URITooLong);
     }
   }
