@@ -65,7 +65,7 @@ int server::handleRequests() {
 
   while (!stop_proc) {
     int n = epoll_wait(this->epollfd, this->events,
-                       this->params.worker_connections, -1);
+                       this->params.workerConnections, -1);
     if (stop_proc)
       break;
     if (n == -1)
@@ -100,7 +100,7 @@ int server::handleRequests() {
       if (!reqfac.ifExists(event_fd))
         reqfac.setRequest(new http::Request(this->params), event_fd);
       req = &reqfac.getRequest(event_fd);
-      req->handleData(event_fd, this->params);
+      req->handleData(event_fd);
       //   /**
       //    * This is the part where
       //    * the request gets handled
@@ -175,7 +175,7 @@ int server::listenAndServe() {
   if (bindSocket() == -1)
     return -1;
   // Now listen to the incoming connections
-  if (listen(this->srvfd, params.worker_connections) == -1)
+  if (listen(this->srvfd, params.workerConnections) == -1)
     return -1;
   if ((this->epollfd = epoll_create1(0)) == -1)
     return -1;
@@ -211,7 +211,7 @@ server::server(int port, srvparams const &params)
     if (servers[i]->port == port)
       throw std::logic_error("Ports must be different for each server");
   }
-  this->events = new epoll_event[params.worker_connections];
+  this->events = new epoll_event[params.workerConnections];
   this->servers.push_back(this);
 }
 server::~server() {

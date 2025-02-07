@@ -1,6 +1,7 @@
 #include "http.hpp"
 #include <cstddef>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 #include <unistd.h>
 
@@ -38,54 +39,12 @@ void http::webbuf::readBuf(int fd) {
 
 // Request
 http::Request::Request(srvparams const &params)
-    : methodParsed(false), uriParsed(false), httpversParsed(false), currbuff(0),
-      cursor(0), endseq_cnt(0), status(http::NOTHING_DONE), line_len(0) {
-  header_buffers.push_back(webbuf(params.client_header_buffer_size));
-}
+    : headerBuffer(webbuf(params.headerBufferSize)),
+      status(http::NOTHING_DONE) {}
 http::Request::~Request() {}
 
-void http::Request::handleData(int fd, srvparams const &params) {
-  // if status = headers_done
-  // parse and buffer the body
-  if (!header_buffers[0].isFull()) {
-    header_buffers[0].readBuf(fd);
-    // TODO: we will have to check for this line in all of the buffers.
-  } else {
-    /**
-     * Check if the large buffers for headers are created.
-     * If not, initialize them
-     */
-    if (header_buffers.size() == 1) {
-      for (int i = 0; i < params.large_client_header_buffers_number; ++i) {
-        header_buffers.push_back(
-            webbuf(params.large_client_header_buffers_size));
-      }
-      ++currbuff;
-    }
-    header_buffers[currbuff].readBuf(fd);
-  }
-  // Parsing
-  while (cursor < header_buffers[currbuff].getEnd()) {
-    char *headers_endseq = (char *)"\r\n\r\n";
-    if (header_buffers[currbuff].getBuffer()[cursor] ==
-        headers_endseq[endseq_cnt])
-      ++endseq_cnt;
-    ++cursor;
-  }
-  // /Parsing
-
-  /**
-   * Check for buffers, if the current is full
-   * then go to the next one. If all of the buffers are full,
-   * and the headers processing is not over yet - BadRequest 400
-   */
-  if (header_buffers[currbuff].isFull()) {
-    ++currbuff;
-    cursor = 0;
-    if (currbuff == (size_t)params.large_client_header_buffers_number &&
-        status != HEADERS_DONE)
-      throw http::HttpError("Request line and headers are too long",
-                            http::BadRequest);
-  }
+void http::Request::handleData(int fd) {
+  headerBuffer.readBuf(fd);
+  std::cout << headerBuffer.getBuffer();
 }
 // /Request

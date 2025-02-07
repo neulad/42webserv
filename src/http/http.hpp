@@ -4,13 +4,12 @@
 #include <cstddef>
 #include <cstring>
 #include <exception>
-#include <utility>
-#include <vector>
+#include <map>
 
 namespace http {
 enum RequestStatus {
-  NOTHING_DONE,
-  REQUEST_LINE_DONE = 0,
+  NOTHING_DONE = 0,
+  REQUEST_LINE_DONE,
   HEADERS_DONE,
   BODY_DONE,
   ALL_DONE
@@ -130,28 +129,17 @@ public:
 class Request {
 private:
   char *method;
-  bool methodParsed;
   char *uri;
-  bool uriParsed;
   char *httpvers;
-  bool httpversParsed;
-  // clang-format off
-  std::vector<std::pair<char *, char *> > headers;
-  // clang-format on
-  std::vector<webbuf> header_buffers;
-  size_t currbuff;
-  size_t cursor;
-  int endseq_cnt;
-  // Utils
+  std::map<char *, char *> headers;
+  webbuf headerBuffer;
   RequestStatus status;
-  // /Utils
 
 public:
-  void handleData(int fd, srvparams const &params);
+  void handleData(int fd);
   int line_len;
   Request(srvparams const &params);
   Request &operator=(Request const &req);
-  // TODO: Delete buffers
   ~Request();
 };
 // /Request

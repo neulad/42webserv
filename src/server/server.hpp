@@ -8,14 +8,10 @@
  */
 typedef struct s_srvparams {
   bool production;
-  int client_header_buffer_size;
-  int worker_connections;
-  int large_client_header_buffers_size;
-  int large_client_header_buffers_number;
+  int const workerConnections;
+  int const headerBufferSize;
   s_srvparams()
-      : production(false), client_header_buffer_size(1024),
-        worker_connections(512), large_client_header_buffers_size(8192),
-        large_client_header_buffers_number(4) {}
+      : production(false), workerConnections(512), headerBufferSize(8192) {}
 } srvparams;
 
 class server {
