@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <sys/epoll.h>
 #include <vector>
 
@@ -10,8 +11,10 @@ typedef struct s_srvparams {
   bool production;
   int const workerConnections;
   int const headerBufferSize;
+  std::string protocol;
   s_srvparams()
-      : production(false), workerConnections(512), headerBufferSize(8192) {}
+      : production(false), workerConnections(512), headerBufferSize(8192),
+        protocol("HTTP/1.1") {}
 } srvparams;
 
 class server {

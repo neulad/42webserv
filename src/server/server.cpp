@@ -98,19 +98,18 @@ int server::handleRequests() {
 
       http::Request *req;
       if (!reqfac.ifExists(event_fd))
-        reqfac.setRequest(new http::Request(this->params), event_fd);
+        reqfac.setRequest(new http::Request(params), event_fd);
       req = &reqfac.getRequest(event_fd);
       req->handleData(event_fd);
-      const char *response = "HTTP/1.1 200 OK\r\n"
-                             "Content-Length: 13\r\n"
-                             "Content-Type: text/plain\r\n"
-                             "\r\n"
-                             "Hello, world!";
-      write(event_fd, response, strlen(response));
+      http::Response res(params);
+      res.setStatusCode(http::OK);
+      res.setStatusMessage("OK");
+      res.setHeader("Content-Length", "11");
+      res.setBody("This is it.");
+      res.end(event_fd);
       close(event_fd);
       removeEpollEvent(event_fd);
       reqfac.deleteRequest(event_fd);
-      std::cout << reqfac.getLength() << std::endl;
     }
   }
   return 1;
