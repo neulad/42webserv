@@ -102,7 +102,6 @@ void http::Request::handleData(int fd) {
     std::cout << headers[i].first << ":: " << headers[i].second << std::endl;
   }
 }
-void http::Request::handleData(int fd) { headerBuffer.readBuf(fd); }
 // /Request
 
 // Response
