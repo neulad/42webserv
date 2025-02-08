@@ -133,9 +133,12 @@ private:
   char *method;
   char *uri;
   char *httpvers;
-  std::map<char *, char *> headers;
+  std::vector<std::pair<char *, char *> > headers;
   webbuf headerBuffer;
   RequestStatus status;
+
+  void parseRequestLine(char **buffer);
+  bool is_whitespace(char c);
 
 public:
   void handleData(int fd);
