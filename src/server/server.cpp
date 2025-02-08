@@ -104,8 +104,8 @@ int server::handleRequests() {
       http::Response res(params);
       res.setStatusCode(http::OK);
       res.setStatusMessage("OK");
-      res.setHeader("Content-Length", "11");
-      res.setBody("This is it.");
+      res.setHeader("Content-Type", "text/x-c++");
+      res.setBodyPath("./src/http/http.cpp");
       res.end(event_fd);
       close(event_fd);
       removeEpollEvent(event_fd);

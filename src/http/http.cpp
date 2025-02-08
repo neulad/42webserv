@@ -1,9 +1,14 @@
 #include "http.hpp"
+#include <cerrno>
 #include <cstddef>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <utility>
 
@@ -66,15 +71,30 @@ void http::Response::setBodyPath(std::string const bodyPath_) {
   bodyPath = bodyPath_;
 }
 void http::Response::end(int fd) {
+  int filefd = -1;
+  size_t fileSize = -1;
   response << protocol << " " << statusCode << " " << statusCode << "\r\n";
   for (size_t i = 0; i < headers.size(); ++i) {
     response << headers[i].first << ": " << headers[i].second << "\r\n";
   }
   response << "\r\n";
-  if (!bodyPath.empty())
-    return;
-  response << body;
+
+  if (!bodyPath.empty()) {
+    filefd = open(bodyPath.c_str(), O_RDONLY);
+    if (filefd == -1)
+      throw http::HttpError(strerror(errno), http::InternalServerError);
+    struct stat stat_buf;
+    fstat(filefd, &stat_buf);
+    fileSize = stat_buf.st_size;
+    std::ostringstream fileSizeString;
+    fileSizeString << fileSize;
+    setHeader("Content-Length", fileSizeString.str());
+  } else
+    response << body;
+
   std::string const &temp = response.str();
   send(fd, temp.c_str(), strlen(temp.c_str()), 0);
+  if (filefd != -1)
+    sendfile(fd, filefd, NULL, fileSize), close(filefd);
 }
 // /Response

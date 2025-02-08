@@ -1,8 +1,14 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <sys/epoll.h>
 #include <vector>
+
+namespace http {
+class Request;
+class Response;
+}; // namespace http
 
 /**
  * Many names here come from NGINX
@@ -18,6 +24,8 @@ typedef struct s_srvparams {
 } srvparams;
 
 class server {
+  typedef void (*HookFunc)(http::Request const &req, http::Response const &res);
+
 private:
   int srvfd;
   int port;
@@ -30,11 +38,15 @@ private:
   void removeEpollEvent(int fd);
   int handleRequests();
   static void handleSignals(int signal);
+  std::map<std::string, void *> hooksMap;
+  std::vector<HookFunc> hooks;
 
 public:
   server(int port, srvparams const &params);
   ~server();
 
+  void hook(HookFunc);
+  void runHooks();
   int listenAndServe();
   void stop();
   srvparams const params;
