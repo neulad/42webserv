@@ -1,9 +1,8 @@
 #include "RequestFactory.hpp"
 #include <stdexcept>
 
-/**
- * RequestFactory
- */
+// RequestFactory
+
 bool RequestFactory::ifExists(int fd) {
   return requests.end() != requests.find(fd);
 }
@@ -16,13 +15,15 @@ void RequestFactory::setRequest(http::Request *req, int fd) {
   if (!ifExists(fd))
     requests[fd] = req;
 }
-void RequestFactory::deleteRequest(int fd) { requests.erase(fd); }
+void RequestFactory::deleteRequest(int fd) {
+  delete requests[fd];
+  requests.erase(fd);
+}
+size_t RequestFactory::getLength() const { return requests.size(); }
 
 RequestFactory::RequestFactory() {}
 RequestFactory::~RequestFactory() {
   for (size_t i = 0; i < this->requests.size(); ++i)
     delete this->requests[i];
 }
-/**
- * /RequestFactory
- */
+// /RequestFactory

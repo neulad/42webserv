@@ -5,6 +5,8 @@
 #include <cstring>
 #include <exception>
 #include <map>
+#include <sstream>
+#include <string>
 
 namespace http {
 enum RequestStatus {
@@ -146,4 +148,30 @@ public:
   ~Request();
 };
 // /Request
+
+// Response
+class Response {
+private:
+  std::string const protocol;
+  int statusCode;
+  std::string statusMessage;
+  // clang-format off
+  std::vector<std::pair<std::string, std::string> > headers;
+  // clang-format on
+  std::string body;
+  std::string bodyPath;
+  std::ostringstream response;
+
+public:
+  void end(int fd);
+  void setStatusCode(int const statusCode);
+  void setStatusMessage(std::string const statusMessage);
+  void setHeader(std::string key, std::string value);
+  void setBodyPath(std::string const bodyPath);
+  void setBody(std::string const &body);
+  Response(srvparams const &params);
+  ~Response();
+};
+// /Response
+
 }; // namespace http
