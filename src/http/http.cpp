@@ -97,10 +97,6 @@ void http::Request::handleData(int fd) {
     }
     headers.push_back(std::make_pair(key, value));
   }
-  // print headers
-  for (size_t i = 0; i < headers.size(); ++i) {
-    std::cout << headers[i].first << ":: " << headers[i].second << std::endl;
-  }
 }
 // /Request
 
