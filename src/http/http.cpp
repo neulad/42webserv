@@ -24,6 +24,9 @@ void http::webbuf::setEnd(int end) {
 size_t http::webbuf::getSize() { return size; }
 bool http::webbuf::isFull() { return full; }
 void http::webbuf::setFull() { full = true; }
+
+
+
 void http::webbuf::readBuf(int fd) {
   if (full)
     return;
@@ -43,8 +46,58 @@ http::Request::Request(srvparams const &params)
       status(http::NOTHING_DONE) {}
 http::Request::~Request() {}
 
+void http::Request::parseRequestLine(char **buffer) {
+  method = *buffer;
+  while (**buffer != ' ') {
+    ++*buffer;
+  }
+  **buffer = '\0';
+  uri = *buffer + 1;
+  while (**buffer != ' ') {
+    ++*buffer;
+  }
+  **buffer = '\0';
+  httpvers = *buffer + 1;
+  while (**buffer != '\n') {
+    ++*buffer;
+  }
+  **buffer = '\0';
+  ++*buffer;
+}
+#include <stdio.h>
 void http::Request::handleData(int fd) {
   headerBuffer.readBuf(fd);
-  std::cout << headerBuffer.getBuffer();
+
+  //
+  char* buffer = headerBuffer.getBuffer();
+  parseRequestLine(&buffer);
+  while (status < http::HEADERS_DONE) {
+    // parse header
+    char* key = buffer;
+    while (*buffer != ':') {
+      ++buffer;
+    }
+    *buffer = '\0';
+    buffer += 2;
+
+    char* value = buffer;
+    while (*buffer != '\r' && buffer) {
+      ++buffer;
+    }
+    *buffer = '\0';
+    buffer += 2;
+    if (*buffer == '\r') {
+      buffer += 2;
+      status = http::HEADERS_DONE;
+    }
+    headers.push_back(std::make_pair(key, value));
+  }
+  // print headers
+  std::cout << "\n\n@@@Method: " << method << std::endl;
+  std::cout << "@@@URI: " << uri << std::endl;
+  std::cout << "@@@HTTP Version: " << httpvers << std::endl;
+  for (size_t i = 0; i < headers.size(); ++i) {
+    std::cout << headers[i].first << ":: " << headers[i].second << std::endl;
+  }
 }
 // /Request

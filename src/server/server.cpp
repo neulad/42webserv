@@ -101,38 +101,8 @@ int server::handleRequests() {
         reqfac.setRequest(new http::Request(this->params), event_fd);
       req = &reqfac.getRequest(event_fd);
       req->handleData(event_fd);
-      //   /**
-      //    * This is the part where
-      //    * the request gets handled
-      //    * in this part we deal with raw http
-      //    * messages, and we read from the socket unless there's no more
-      //    data
-      //    * sent by the client, and then we put it all in one string called
-      //    req
-      //    */
-      //   std::string raw_req;
-      //   buffer[nbts] = '\0';
-      //   raw_req = buffer;
-      //   while ((nbts = read(event_fd, buffer, BUFFER_SIZE - 1)) > 0) {
-      //     buffer[nbts] = '\0';
-      //     raw_req += buffer;
-      //   }
-      //   /**
-      //    * The request processing happens here
-      //    */
-      //   http::request req(raw_req);
-      //   std::cout << req.getUrl() + " " + req.getMethod() + " " +
-      //                    req.getProtocol()
-      //             << std::endl;
-      //   // clang-format off
-      //   std::vector<std::pair<std::string, std::string> > allHeaders =
-      //       req.getAllHeaders();
-      //   // clang-format on
-      //   std::cout << allHeaders[0].first + " " + allHeaders[0].second
-      //             << std::endl;
-      //   std::cout << allHeaders[1].first + " " + allHeaders[1].second
-      //             << std::endl;
-      //   std::cout << req.getBody() << std::endl;
+
+      
       const char *response = "HTTP/1.1 200 OK\r\n"
                              "Content-Length: 13\r\n"
                              "Content-Type: text/plain\r\n"
