@@ -10,9 +10,6 @@ class Request;
 class Response;
 }; // namespace http
 
-/**
- * Many names here come from NGINX
- */
 typedef struct s_srvparams {
   bool production;
   int const workerConnections;
