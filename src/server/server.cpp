@@ -1,5 +1,6 @@
-#include "server.hpp"
 #include "../hooks/ParseQuery.hpp"
+#include "../http/http.hpp"
+#include "../utils/utils.hpp"
 #include "RequestFactory.hpp"
 #include <csignal>
 #include <cstddef>
@@ -150,7 +151,6 @@ void server::stop() {
     close(this->epollfd);
 }
 
-void server::hook(HookFunc func) { hooks.push_back(func); }
 void server::runHooks(http::Request &req, http::Response &res) {
   for (size_t i = 0; i < hooks.size(); ++i)
     hooks[i](req, res);
@@ -172,3 +172,30 @@ server::~server() {
     if (this == this->servers[i])
       this->servers.erase(this->servers.begin() + i);
 }
+
+// Handlers
+void server::hook(HandleFunc func) { hooks.push_back(func); }
+void server::get(std::string endpoint, HandleFunc func) {
+  router["GET"][endpoint] = func;
+}
+void server::post(std::string endpoint, HandleFunc func) {
+  router["POST"][endpoint] = func;
+}
+void server::del(std::string endpoint, HandleFunc func) {
+  router["DELETE"][endpoint] = func;
+}
+
+void server::routeRequest(http::Request const &req, http::Response &res) {
+  std::map<std::string, HandleFunc> &methodEndpoints = router[req.getMethod()];
+  HandleFunc func;
+  for (std::map<std::string, HandleFunc>::iterator it = methodEndpoints.begin();
+       it != methodEndpoints.end(); ++it) {
+    if (utils::matchEndpoint(it->first, req.getUri())) {
+      func = it->second;
+      func(req, res);
+      return;
+    }
+  }
+  throw http::HttpError("The endpoint couldn't be found", http::NotFound);
+}
+// /Handlers

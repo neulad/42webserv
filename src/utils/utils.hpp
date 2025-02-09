@@ -12,4 +12,5 @@ bool iCompare(const std::string &str1, const std::string &str2);
 // Checks if the sequence is present
 bool seqPresent(char const *seq, ...);
 bool anyPresent(char const *any, char *str);
+bool matchEndpoint(const std::string &endpoint, const std::string &uri);
 } // namespace utils

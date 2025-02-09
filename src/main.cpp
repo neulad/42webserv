@@ -11,7 +11,7 @@
 
 void Log(http::Request const &req, http::Response &res) {
   (void)res;
-  std::cout << "Request got" << req.uri << std::endl;
+  std::cout << "Request got" << req.getUri() << std::endl;
 }
 
 int main() {

@@ -130,6 +130,7 @@ public:
 // Request
 class Request {
 private:
+  char *uri;
   char *method;
   char *httpvers;
   // clang-format off
@@ -142,8 +143,10 @@ private:
   bool is_whitespace(char c);
 
 public:
-  char *uri;
   void handleData(int fd);
+  char *getUri() const { return uri; };
+  char *getMethod() const { return method; };
+  char *getHttpvers() const { return httpvers; };
   Request(srvparams const &params);
   Request &operator=(Request const &req);
   ~Request();

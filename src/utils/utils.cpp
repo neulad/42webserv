@@ -63,3 +63,25 @@ bool utils::anyPresent(char const *any, char *str) {
     }
   return false;
 }
+
+bool matchEndpoint(const std::string &endpoint, const std::string &uri) {
+  size_t starPos = endpoint.find('*');
+
+  if (starPos == std::string::npos) {
+    return endpoint == uri;
+  }
+
+  std::string beforeStar = endpoint.substr(0, starPos);
+  std::string afterStar = endpoint.substr(starPos + 1);
+
+  if (uri.size() < beforeStar.size() + afterStar.size()) {
+    return false; // URI is too short to match
+  }
+
+  if (uri.substr(0, beforeStar.size()) == beforeStar &&
+      uri.substr(uri.size() - afterStar.size()) == afterStar) {
+    return true;
+  }
+
+  return false;
+}
