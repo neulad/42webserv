@@ -4,12 +4,21 @@
 
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 
-#include "server/server.hpp"
+#include "hooks/ParseQuery.hpp"
+#include "http/http.hpp"
+
+void Log(http::Request const &req, http::Response &res) {
+  (void)res;
+  std::cout << "Request got" << req.uri << std::endl;
+}
 
 int main() {
   srvparams params;
   server srv(8080, params);
+  srv.hook(Log);
+  srv.hook(parseQueryString);
 
   if (srv.listenAndServe() == -1)
     return perror("Error on the server: "), 1;

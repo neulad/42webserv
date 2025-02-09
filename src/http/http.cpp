@@ -69,7 +69,6 @@ void http::Request::parseRequestLine(char **buffer) {
   **buffer = '\0';
   ++*buffer;
 }
-#include <stdio.h>
 void http::Request::handleData(int fd) {
   headerBuffer.readBuf(fd);
 
@@ -103,7 +102,14 @@ void http::Request::handleData(int fd) {
 // Response
 http::Response::Response(srvparams const &params)
     : protocol(params.protocol), statusCode(http::OK), statusMessage("OK") {}
-http::Response::~Response() {}
+http::Response::~Response() {
+  for (std::map<std::string, void *>::iterator it = hooksMap.begin();
+       it != hooksMap.end(); ++it) {
+    if (it->second != NULL && deleters[it->first] != NULL) {
+      deleters[it->first](it->second);
+    }
+  }
+}
 void http::Response::setStatusCode(int statusCode) {
   statusCode = int(statusCode);
 };

@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "../hooks/ParseQuery.hpp"
 #include "RequestFactory.hpp"
 #include <csignal>
 #include <cstddef>
@@ -20,9 +21,6 @@
  */
 std::vector<server *> server::servers;
 
-/**
- * Signals handling
- */
 void server::handleSignals(int signal) {
   if (signal == SIGINT)
     for (size_t i = 0; i < server::servers.size(); ++i) {
@@ -30,9 +28,6 @@ void server::handleSignals(int signal) {
     }
 }
 
-/**
- * Requests handling
- */
 int server::bindSocket() {
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
@@ -102,10 +97,15 @@ int server::handleRequests() {
       req = &reqfac.getRequest(event_fd);
       req->handleData(event_fd);
       http::Response res(params);
+      runHooks(*req, res);
       res.setStatusCode(http::OK);
       res.setStatusMessage("OK");
       res.setHeader("Content-Type", "text/x-c++");
       res.setBodyPath("./src/http/http.cpp");
+      queryStringType *quryString =
+          res.getHookMap<queryStringType>("queryString");
+      if (quryString != NULL)
+        std::cout << (*quryString)["hello"];
       res.end(event_fd);
       close(event_fd);
       removeEpollEvent(event_fd);
@@ -115,9 +115,6 @@ int server::handleRequests() {
   return 1;
 }
 
-/**
- * Public functions
- */
 int server::listenAndServe() {
   // First create a socket for the server
   this->srvfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -130,16 +127,6 @@ int server::listenAndServe() {
       return -1;
   }
 
-  /**
-   * Then give it an identifier
-   * When the data is sent to the machine
-   * It understands which socket it should send
-   * this data to through this identifier
-   * The client will need to
-   * know server's identifier
-   * to know where to send the data
-   * Treat it as IP on the Internet
-   */
   if (bindSocket() == -1)
     return -1;
   // Now listen to the incoming connections
@@ -147,15 +134,6 @@ int server::listenAndServe() {
     return -1;
   if ((this->epollfd = epoll_create1(0)) == -1)
     return -1;
-  /**
-   * Now we give the epollo ability to track down
-   * what's going on with the server. This socket
-   * was made to wait for the new connection and
-   * create a new socket for every separate
-   * connection specifically. Epollo keeps track of
-   * all of the events in the created sockets, and allows
-   * us to act accordingly
-   */
   if (addEpollEvent(this->srvfd) == -1)
     return -1;
   std::cout << "Server is listening on port :" << this->port << std::endl;
@@ -172,7 +150,12 @@ void server::stop() {
     close(this->epollfd);
 }
 
-// Constructors
+void server::hook(HookFunc func) { hooks.push_back(func); }
+void server::runHooks(http::Request &req, http::Response &res) {
+  for (size_t i = 0; i < hooks.size(); ++i)
+    hooks[i](req, res);
+}
+
 server::server(int port, srvparams const &params)
     : srvfd(-1), port(port), epollfd(-1), stop_proc(false), params(params) {
   for (size_t i = 0; i < servers.size(); ++i) {
@@ -189,4 +172,3 @@ server::~server() {
     if (this == this->servers[i])
       this->servers.erase(this->servers.begin() + i);
 }
-// /Constructors

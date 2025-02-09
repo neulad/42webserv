@@ -1,6 +1,5 @@
 #pragma once
 
-#include <map>
 #include <string>
 #include <sys/epoll.h>
 #include <vector>
@@ -21,7 +20,7 @@ typedef struct s_srvparams {
 } srvparams;
 
 class server {
-  typedef void (*HookFunc)(http::Request const &req, http::Response const &res);
+  typedef void (*HookFunc)(http::Request const &req, http::Response &res);
 
 private:
   int srvfd;
@@ -35,7 +34,6 @@ private:
   void removeEpollEvent(int fd);
   int handleRequests();
   static void handleSignals(int signal);
-  std::map<std::string, void *> hooksMap;
   std::vector<HookFunc> hooks;
 
 public:
@@ -43,7 +41,7 @@ public:
   ~server();
 
   void hook(HookFunc);
-  void runHooks();
+  void runHooks(http::Request &req, http::Response &res);
   int listenAndServe();
   void stop();
   srvparams const params;

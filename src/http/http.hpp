@@ -131,9 +131,10 @@ public:
 class Request {
 private:
   char *method;
-  char *uri;
   char *httpvers;
+  // clang-format off
   std::vector<std::pair<char *, char *> > headers;
+  // clang-format on
   webbuf headerBuffer;
   RequestStatus status;
 
@@ -141,8 +142,8 @@ private:
   bool is_whitespace(char c);
 
 public:
+  char *uri;
   void handleData(int fd);
-  int line_len;
   Request(srvparams const &params);
   Request &operator=(Request const &req);
   ~Request();
@@ -161,6 +162,11 @@ private:
   std::string body;
   std::string bodyPath;
   std::ostringstream response;
+  std::map<std::string, void *> hooksMap;
+  std::map<std::string, void (*)(void *)> deleters;
+  template <typename T> static void deleteObject(void *ptr) {
+    delete static_cast<T *>(ptr);
+  }
 
 public:
   void end(int fd);
@@ -169,6 +175,13 @@ public:
   void setHeader(std::string key, std::string value);
   void setBodyPath(std::string const bodyPath);
   void setBody(std::string const &body);
+  template <typename T> void setHookMap(std::string key, T *value) {
+    hooksMap[key] = value;
+    deleters[key] = &deleteObject<T>;
+  };
+  template <typename T> T *getHookMap(std::string key) {
+    return static_cast<T *>(hooksMap[key]);
+  };
   Response(srvparams const &params);
   ~Response();
 };
