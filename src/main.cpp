@@ -14,12 +14,21 @@ void Log(http::Request const &req, http::Response &res) {
   std::cout << "Request got" << req.getUri() << std::endl;
 }
 
+void GetCars(http::Request const &req, http::Response &res) {
+  (void)req;
+  res.setHeader("Content-Length", "10");
+  res.setStatusCode(http::OK);
+  res.setStatusMessage("OK");
+  res.setBody("0123456789");
+}
+
 int main() {
   srvparams params;
   server srv(8080, params);
   srv.hook(Log);
   srv.hook(parseQueryString);
 
+  // srv.get("/api/cars", GetCars);
   if (srv.listenAndServe() == -1)
     return perror("Error on the server: "), 1;
   return 0;

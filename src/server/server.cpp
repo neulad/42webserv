@@ -1,4 +1,4 @@
-#include "../hooks/ParseQuery.hpp"
+// #include "../hooks/ParseQuery.hpp"
 #include "../http/http.hpp"
 #include "../utils/utils.hpp"
 #include "RequestFactory.hpp"
@@ -13,9 +13,6 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#define MAX_EVENTS 10
-#define BUFFER_SIZE 1024
 
 /**
  * Static fields
@@ -99,14 +96,15 @@ int server::handleRequests() {
       req->handleData(event_fd);
       http::Response res(params);
       runHooks(*req, res);
-      res.setStatusCode(http::OK);
-      res.setStatusMessage("OK");
-      res.setHeader("Content-Type", "text/x-c++");
-      res.setBodyPath("./src/http/http.cpp");
-      queryStringType *quryString =
-          res.getHookMap<queryStringType>("queryString");
-      if (quryString != NULL)
-        std::cout << (*quryString)["hello"];
+      // res.setStatusCode(http::OK);
+      // res.setStatusMessage("OK");
+      // res.setHeader("Content-Type", "text/x-c++");
+      // res.setBodyPath("./src/http/http.cpp");
+      // queryStringType *quryString =
+      //     res.getHookMap<queryStringType>("queryString");
+      // if (quryString != NULL)
+      //   std::cout << (*quryString)["hello"];
+      routeRequest(*req, res);
       res.end(event_fd);
       close(event_fd);
       removeEpollEvent(event_fd);

@@ -64,7 +64,7 @@ bool utils::anyPresent(char const *any, char *str) {
   return false;
 }
 
-bool matchEndpoint(const std::string &endpoint, const std::string &uri) {
+bool utils::matchEndpoint(const std::string &endpoint, const std::string &uri) {
   size_t starPos = endpoint.find('*');
 
   if (starPos == std::string::npos) {
