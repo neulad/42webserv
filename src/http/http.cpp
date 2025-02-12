@@ -129,7 +129,7 @@ bool http::Response::isBodyReady() {
 void http::Response::end(int fd) {
   int filefd = -1;
   size_t fileSize = -1;
-  response << protocol << " " << statusCode << " " << statusCode << "\r\n";
+  response << protocol << " " << statusCode << " " << statusMessage << "\r\n";
   for (size_t i = 0; i < headers.size(); ++i) {
     response << headers[i].first << ": " << headers[i].second << "\r\n";
   }

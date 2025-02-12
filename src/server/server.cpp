@@ -75,9 +75,6 @@ int server::handleRequests() {
         addEpollEvent(clntfd);
         continue;
       }
-      // /Check if it is a request for connection or new data
-
-      // Check if the client has sent a FIN package
       {
         char buffer[1];
         if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
@@ -87,8 +84,6 @@ int server::handleRequests() {
           continue;
         }
       }
-      // /Check if the client has sent a FIN package
-
       http::Request *req;
       if (!reqfac.ifExists(event_fd))
         reqfac.setRequest(new http::Request(params), event_fd);
