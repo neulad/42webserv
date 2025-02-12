@@ -20,8 +20,8 @@ typedef struct s_srvparams {
         protocol("HTTP/1.1") {}
 } srvparams;
 
+typedef void (*HandleFunc)(http::Request const &req, http::Response &res);
 class server {
-  typedef void (*HandleFunc)(http::Request const &req, http::Response &res);
 
 private:
   int srvfd;

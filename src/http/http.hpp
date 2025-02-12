@@ -178,6 +178,7 @@ public:
   void setHeader(std::string key, std::string value);
   void setBodyPath(std::string const bodyPath);
   void setBody(std::string const &body);
+  bool isBodyReady();
   template <typename T> void setHookMap(std::string key, T *value) {
     hooksMap[key] = value;
     deleters[key] = &deleteObject<T>;

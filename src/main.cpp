@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "hooks/HandleStatic.hpp"
 #include "hooks/ParseQuery.hpp"
 #include "http/http.hpp"
 
@@ -22,13 +23,19 @@ void GetCars(http::Request const &req, http::Response &res) {
   res.setBody("0123456789");
 }
 
+StaticHandler staticHandler("static");
+void handleStatic(http::Request const &req, http::Response &res) {
+  staticHandler(req, res);
+}
+
 int main() {
   srvparams params;
   server srv(8080, params);
   srv.hook(Log);
   srv.hook(parseQueryString);
+  srv.hook(handleStatic);
 
-  // srv.get("/api/cars", GetCars);
+  // srv.get("/", GetCars);
   if (srv.listenAndServe() == -1)
     return perror("Error on the server: "), 1;
   return 0;

@@ -104,7 +104,8 @@ int server::handleRequests() {
       //     res.getHookMap<queryStringType>("queryString");
       // if (quryString != NULL)
       //   std::cout << (*quryString)["hello"];
-      routeRequest(*req, res);
+      if (!res.isBodyReady())
+        routeRequest(*req, res);
       res.end(event_fd);
       close(event_fd);
       removeEpollEvent(event_fd);

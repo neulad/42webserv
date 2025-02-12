@@ -123,6 +123,9 @@ void http::Response::setBody(std::string const &body_) { body = body_; }
 void http::Response::setBodyPath(std::string const bodyPath_) {
   bodyPath = bodyPath_;
 }
+bool http::Response::isBodyReady() {
+  return !body.empty() || !bodyPath.empty();
+}
 void http::Response::end(int fd) {
   int filefd = -1;
   size_t fileSize = -1;
