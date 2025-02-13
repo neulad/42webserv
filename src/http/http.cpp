@@ -149,11 +149,9 @@ void http::Response::end(int event_fd, FilefdFactory &filefdfaq) {
   std::string const &temp = response.str();
   send(event_fd, temp.c_str(), strlen(temp.c_str()), 0);
   if (filefd != -1) {
-    // Here if the file is not sent entirety we push the event_fd to EPOLL_OUT
     int offset = sendfile(event_fd, filefd, NULL, filefdfaq.getChunkSize());
-    if (offset != stat_buf.st_size) {
+    if (offset < stat_buf.st_size)
       filefdfaq.addFdoffset(event_fd, filefd, fileSize, offset);
-    }
   }
 }
 // /Response

@@ -35,7 +35,7 @@ int main() {
   srv.hook(parseQueryString);
   srv.hook(handleStatic);
 
-  // srv.get("/", GetCars);
+  srv.get("/", GetCars);
   if (srv.listenAndServe() == -1)
     return perror("Error on the server: "), 1;
   return 0;

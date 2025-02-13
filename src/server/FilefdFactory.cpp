@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 bool FilefdFactory::ifExists(int fd) {
-  return fdoffsets.find(fd) == fdoffsets.end();
+  return fdoffsets.find(fd) != fdoffsets.end();
 }
 void FilefdFactory::addFdoffset(int event_fd, int filefd, size_t fileSize,
                                 off_t offset) {

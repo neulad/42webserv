@@ -33,6 +33,7 @@ private:
   struct epoll_event *events;
   int bindSocket();
   int addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent);
+  void addEPOLLOUT(int event_fd);
   void removeEpollEvent(int fd);
   void removeEPOLLOUT(int event_fd);
   int handleRequests();

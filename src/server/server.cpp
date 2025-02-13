@@ -53,6 +53,15 @@ void server::removeEpollEvent(int fd) {
   epoll_ctl(this->epollfd, EPOLL_CTL_DEL, fd, NULL);
 }
 
+void server::addEPOLLOUT(int event_fd) {
+  struct epoll_event ev;
+  ev.events = EPOLLIN | EPOLLOUT;
+  ev.data.fd = event_fd;
+  if (epoll_ctl(epollfd, EPOLL_CTL_MOD, event_fd, &ev) == -1) {
+    throw std::runtime_error("Couldn't add EPOLLOUT event");
+  }
+}
+
 void server::removeEPOLLOUT(int event_fd) {
   struct epoll_event event;
   event.events = EPOLLIN & ~EPOLLOUT;
@@ -119,10 +128,9 @@ int server::handleRequests() {
       if (!res.isBodyReady())
         routeRequest(*req, res);
       res.end(event_fd, filefdfac);
-      // if (filefdfac.ifExists(event_fd)) {
-      //   std::cout << "the epollout event is created";
-      //   addEpollEvent(event_fd, EPOLLOUT);
-      // }
+      if (filefdfac.ifExists(event_fd)) {
+        addEPOLLOUT(event_fd);
+      }
       // close(event_fd);
       // removeEpollEvent(event_fd);
       // reqfac.deleteRequest(event_fd);
