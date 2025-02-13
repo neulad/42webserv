@@ -1,6 +1,7 @@
 // #include "../hooks/ParseQuery.hpp"
 #include "../http/http.hpp"
 #include "../utils/utils.hpp"
+#include "FilefdFactory.hpp"
 #include "RequestFactory.hpp"
 #include <csignal>
 #include <cstddef>
@@ -39,9 +40,9 @@ int server::bindSocket() {
   return 1;
 }
 
-int server::addEpollEvent(int fd) {
+int server::addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent) {
   struct epoll_event event;
-  event.events = EPOLLIN;
+  event.events = epollEvent;
   event.data.fd = fd;
   if (epoll_ctl(this->epollfd, EPOLL_CTL_ADD, fd, &event) == -1)
     return -1;
@@ -52,8 +53,17 @@ void server::removeEpollEvent(int fd) {
   epoll_ctl(this->epollfd, EPOLL_CTL_DEL, fd, NULL);
 }
 
+void server::removeEPOLLOUT(int event_fd) {
+  struct epoll_event event;
+  event.events = EPOLLIN & ~EPOLLOUT;
+  event.data.fd = event_fd;
+  if (epoll_ctl(epollfd, EPOLL_CTL_MOD, event_fd, &event) == -1)
+    throw std::runtime_error("Couldn't remove EPOLLOUT event");
+}
+
 int server::handleRequests() {
   RequestFactory reqfac;
+  FilefdFactory filefdfac(params.sendfileMaxChunk);
   std::signal(SIGINT, server::handleSignals);
 
   while (!stop_proc) {
@@ -64,7 +74,7 @@ int server::handleRequests() {
     if (n == -1)
       return -1;
     for (int i = 0; i < n; ++i) {
-      int event_fd = this->events[i].data.fd;
+      int event_fd = events[i].data.fd;
       fcntl(event_fd, F_SETFL, fcntl(event_fd, F_GETFL, 0) | O_NONBLOCK);
 
       // Check if it is a request for connection or new data
@@ -72,7 +82,13 @@ int server::handleRequests() {
         int clntfd = accept(this->srvfd, NULL, NULL);
         if (clntfd == -1)
           continue;
-        addEpollEvent(clntfd);
+        addEpollEvent(clntfd, EPOLLIN);
+        continue;
+      }
+      if (events[i].events & EPOLLOUT) {
+        filefdfac.sendFdoffset(event_fd);
+        if (!filefdfac.ifExists(event_fd))
+          removeEPOLLOUT(event_fd);
         continue;
       }
       {
@@ -80,7 +96,7 @@ int server::handleRequests() {
         if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
           close(event_fd);
           removeEpollEvent(event_fd);
-          // TODO: Remove request if it was not finished from
+          reqfac.deleteRequest(event_fd);
           continue;
         }
       }
@@ -90,6 +106,7 @@ int server::handleRequests() {
       req = &reqfac.getRequest(event_fd);
       req->handleData(event_fd);
       http::Response res(params);
+      res.setHeader("Connection", "keep-alive");
       runHooks(*req, res);
       // res.setStatusCode(http::OK);
       // res.setStatusMessage("OK");
@@ -101,10 +118,14 @@ int server::handleRequests() {
       //   std::cout << (*quryString)["hello"];
       if (!res.isBodyReady())
         routeRequest(*req, res);
-      res.end(event_fd);
-      close(event_fd);
-      removeEpollEvent(event_fd);
-      reqfac.deleteRequest(event_fd);
+      res.end(event_fd, filefdfac);
+      // if (filefdfac.ifExists(event_fd)) {
+      //   std::cout << "the epollout event is created";
+      //   addEpollEvent(event_fd, EPOLLOUT);
+      // }
+      // close(event_fd);
+      // removeEpollEvent(event_fd);
+      // reqfac.deleteRequest(event_fd);
     }
   }
   return 1;
@@ -129,7 +150,7 @@ int server::listenAndServe() {
     return -1;
   if ((this->epollfd = epoll_create1(0)) == -1)
     return -1;
-  if (addEpollEvent(this->srvfd) == -1)
+  if (addEpollEvent(this->srvfd, EPOLLIN) == -1)
     return -1;
   std::cout << "Server is listening on port :" << this->port << std::endl;
   if (handleRequests() == -1)

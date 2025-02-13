@@ -18,6 +18,10 @@ void StaticHandler::operator()(http::Request const &req,
       file.close(), throw http::HttpError("The requested path is a directory",
                                           http::Forbidden);
     res.setBodyPath(filePath);
+    int fileSize = fileStat.st_size;
+    std::ostringstream fileSizeString;
+    fileSizeString << fileSize;
+    res.setHeader("Content-Length", fileSizeString.str());
   } else
     file.close(),
         throw http::HttpError("The file doesn't exist", http::NotFound);

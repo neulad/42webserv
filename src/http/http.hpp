@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../server/FilefdFactory.hpp"
 #include "../server/server.hpp"
 #include <cstddef>
 #include <cstring>
@@ -172,7 +173,7 @@ private:
   }
 
 public:
-  void end(int fd);
+  void end(int fd, FilefdFactory &filefdfaq);
   void setStatusCode(int const statusCode);
   void setStatusMessage(std::string const statusMessage);
   void setHeader(std::string key, std::string value);

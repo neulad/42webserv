@@ -1,4 +1,5 @@
 #include "http.hpp"
+#include "../server/FilefdFactory.hpp"
 #include <cerrno>
 #include <cstddef>
 #include <cstring>
@@ -126,7 +127,8 @@ void http::Response::setBodyPath(std::string const bodyPath_) {
 bool http::Response::isBodyReady() {
   return !body.empty() || !bodyPath.empty();
 }
-void http::Response::end(int fd) {
+void http::Response::end(int event_fd, FilefdFactory &filefdfaq) {
+  struct stat stat_buf;
   int filefd = -1;
   size_t fileSize = -1;
   response << protocol << " " << statusCode << " " << statusMessage << "\r\n";
@@ -139,18 +141,19 @@ void http::Response::end(int fd) {
     filefd = open(bodyPath.c_str(), O_RDONLY);
     if (filefd == -1)
       throw http::HttpError(strerror(errno), http::InternalServerError);
-    struct stat stat_buf;
     fstat(filefd, &stat_buf);
     fileSize = stat_buf.st_size;
-    std::ostringstream fileSizeString;
-    fileSizeString << fileSize;
-    setHeader("Content-Length", fileSizeString.str());
   } else
     response << body;
 
   std::string const &temp = response.str();
-  send(fd, temp.c_str(), strlen(temp.c_str()), 0);
-  if (filefd != -1)
-    sendfile(fd, filefd, NULL, fileSize), close(filefd);
+  send(event_fd, temp.c_str(), strlen(temp.c_str()), 0);
+  if (filefd != -1) {
+    // Here if the file is not sent entirety we push the event_fd to EPOLL_OUT
+    int offset = sendfile(event_fd, filefd, NULL, filefdfaq.getChunkSize());
+    if (offset != stat_buf.st_size) {
+      filefdfaq.addFdoffset(event_fd, filefd, fileSize, offset);
+    }
+  }
 }
 // /Response

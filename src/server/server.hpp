@@ -12,12 +12,13 @@ class Response;
 
 typedef struct s_srvparams {
   bool production;
-  int const workerConnections;
-  int const headerBufferSize;
+  int workerConnections;
+  int headerBufferSize;
+  int sendfileMaxChunk;
   std::string protocol;
   s_srvparams()
       : production(false), workerConnections(512), headerBufferSize(8192),
-        protocol("HTTP/1.1") {}
+        sendfileMaxChunk(4096), protocol("HTTP/1.1") {}
 } srvparams;
 
 typedef void (*HandleFunc)(http::Request const &req, http::Response &res);
@@ -31,8 +32,9 @@ private:
   static std::vector<server *> servers;
   struct epoll_event *events;
   int bindSocket();
-  int addEpollEvent(int fd);
+  int addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent);
   void removeEpollEvent(int fd);
+  void removeEPOLLOUT(int event_fd);
   int handleRequests();
   static void handleSignals(int signal);
   std::vector<HandleFunc> hooks;

@@ -16,6 +16,8 @@ void RequestFactory::setRequest(http::Request *req, int fd) {
     requests[fd] = req;
 }
 void RequestFactory::deleteRequest(int fd) {
+  if (!ifExists(fd))
+    return;
   delete requests[fd];
   requests.erase(fd);
 }
