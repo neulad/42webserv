@@ -18,10 +18,11 @@ void StaticHandler::operator()(http::Request const &req,
       file.close(), throw http::HttpError("The requested path is a directory",
                                           http::Forbidden);
     res.setBodyPath(filePath);
-    int fileSize = fileStat.st_size;
+    unsigned long fileSize = fileStat.st_size;
     std::ostringstream fileSizeString;
     fileSizeString << fileSize;
     res.setHeader("Content-Length", fileSizeString.str());
+    res.setHeader("Content-Type", "application/x-iso9660-image");
   } else
     file.close(),
         throw http::HttpError("The file doesn't exist", http::NotFound);

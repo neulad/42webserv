@@ -78,6 +78,7 @@ int server::handleRequests() {
   while (!stop_proc) {
     int n = epoll_wait(this->epollfd, this->events,
                        this->params.workerConnections, -1);
+
     if (stop_proc)
       break;
     if (n == -1)
@@ -95,9 +96,13 @@ int server::handleRequests() {
         continue;
       }
       if (events[i].events & EPOLLOUT) {
+        if (n < 5)
+          usleep(1);
         filefdfac.sendFdoffset(event_fd);
-        if (!filefdfac.ifExists(event_fd))
+        if (!filefdfac.ifExists(event_fd)) {
+          std::cout << "response sending is over" << std::endl;
           removeEPOLLOUT(event_fd);
+        }
         continue;
       }
       {

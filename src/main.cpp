@@ -12,7 +12,7 @@
 
 void Log(http::Request const &req, http::Response &res) {
   (void)res;
-  std::cout << "Request got" << req.getUri() << std::endl;
+  std::cout << "Request URI: " << req.getUri() << std::endl;
 }
 
 void GetCars(http::Request const &req, http::Response &res) {

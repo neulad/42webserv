@@ -18,7 +18,7 @@ typedef struct s_srvparams {
   std::string protocol;
   s_srvparams()
       : production(false), workerConnections(512), headerBufferSize(8192),
-        sendfileMaxChunk(4096), protocol("HTTP/1.1") {}
+        sendfileMaxChunk(1024 * 4), protocol("HTTP/1.1") {}
 } srvparams;
 
 typedef void (*HandleFunc)(http::Request const &req, http::Response &res);
