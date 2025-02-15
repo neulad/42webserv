@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "hooks/HandleJson.hpp"
 #include "hooks/HandleStatic.hpp"
 #include "hooks/ParseQuery.hpp"
 #include "http/http.hpp"
@@ -34,6 +35,7 @@ int main() {
   srv.hook(Log);
   srv.hook(parseQueryString);
   srv.hook(handleStatic);
+  srv.hook(handleJson);
 
   srv.get("/", GetCars);
   if (srv.listenAndServe() == -1)

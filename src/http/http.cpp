@@ -98,6 +98,13 @@ void http::Request::handleData(int fd) {
     headers.push_back(std::make_pair(key, value));
   }
 }
+const char *http::Request::getHeader(char const *key) const {
+  for (size_t i = 0; i < headers.size(); ++i) {
+    if (!strcmp(headers[i].first, key))
+      return headers[i].second;
+  }
+  return NULL;
+};
 // /Request
 
 // Response

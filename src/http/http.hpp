@@ -145,6 +145,7 @@ private:
 
 public:
   void handleData(int fd);
+  const char *getHeader(char const *key) const;
   char *getUri() const { return uri; };
   char *getMethod() const { return method; };
   char *getHttpvers() const { return httpvers; };
