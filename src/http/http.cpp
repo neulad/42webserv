@@ -41,9 +41,9 @@ http::Request::Request() {}
 http::Request::~Request() {}
 
 const char *http::Request::getHeader(char const *key) const {
-  for (size_t i = 0; i < headers.size(); ++i) {
-    if (!strcmp(headers[i].first, key))
-      return headers[i].second;
+  for (size_t i = 0; i < _headers.size(); ++i) {
+    if (!strcmp(_headers[i].first, key))
+      return _headers[i].second;
   }
   return NULL;
 };
@@ -51,8 +51,7 @@ const char *http::Request::getHeader(char const *key) const {
 
 // Connection
 http::Connection::Connection(srvparams const &params)
-    : curBuf(0), cursor(0), status(http::NOTHING_DONE), rnrnCounter(0),
-      bgnRnrn(0) {
+    : curBuf(0), cursor(0), status(http::NOTHING_DONE), rnrnCounter(0) {
   buffers[0] = new webbuf(params.bufferSize);
   buffers[1] = new webbuf(params.bufferSize);
 };
@@ -68,48 +67,46 @@ void http::Connection::hndlIncStrm(int event_fd) {
   char *buffer = buffers[curBuf]->getBuf();
 
   // parse request line
-  curReq.setMethod(&buffer[cursor]);
-  while (!std::isspace(buffer[cursor])) {
-    cursor++;
-  }
-  buffer[cursor] = '\0';
+  // curReq.setMethod(&buffer[cursor]);
+  // while (!std::isspace(buffer[cursor])) {
+  //   cursor++;
+  // }
+  // buffer[cursor] = '\0';
 
-  curReq.setUri(&buffer[cursor + 1]);
-  while (!std::isspace(buffer[cursor])) {
-    cursor++;
-  }
-  buffer[cursor] = '\0';
+  // curReq.setUri(&buffer[cursor + 1]);
+  // while (!std::isspace(buffer[cursor])) {
+  //   cursor++;
+  // }
+  // buffer[cursor] = '\0';
 
-  curReq.setHttpvers(&buffer[cursor + 1]);
-  while (buffer[cursor] != '\r') {
-    cursor++;
-  }
-  buffer[cursor] = '\0';
-  cursor += 2;
+  // curReq.setHttpvers(&buffer[cursor + 1]);
+  // while (buffer[cursor] != '\r') {
+  //   cursor++;
+  // }
+  // buffer[cursor] = '\0';
+  // cursor += 2;
 
   // parse headers
-  while (buffer[cursor] != '\r') {
-    char *key = &buffer[cursor];
-    while (buffer[cursor] != ':') {
-      cursor++;
-    }
-    buffer[cursor] = '\0';
-    cursor += 2;
-    char *value = &buffer[cursor];
-    while (buffer[cursor] != '\r' && buffer[cursor]) {
-      cursor++;
-    }
-    buffer[cursor] = '\0';
-    cursor += 2;
-    curReq.setHeader(key, value);
-  }
-  cursor += 2;
-
-  curReq.setMethod();
-
+  // while (buffer[cursor] != '\r') {
+  //   char *key = &buffer[cursor];
+  //   while (buffer[cursor] != ':') {
+  //     cursor++;
+  //   }
+  //   buffer[cursor] = '\0';
+  //   cursor += 2;
+  //   char *value = &buffer[cursor];
+  //   while (buffer[cursor] != '\r' && buffer[cursor]) {
+  //     cursor++;
+  //   }
+  //   buffer[cursor] = '\0';
+  //   cursor += 2;
+  //   curReq.setHeader(key, value);
+  // }
+  // cursor += 2;
   // curser < end
   char const *rnrnStr = "\r\n\r\n";
   char delim;
+  char *bgnRnrn;
   while (buffer[cursor]) {
     if (buffer[cursor] == rnrnStr[rnrnCounter]) {
       ++rnrnCounter;
@@ -117,14 +114,21 @@ void http::Connection::hndlIncStrm(int event_fd) {
         bgnRnrn = buffer + cursor;
       if (rnrnCounter == 2) {
         *bgnRnrn = '\0';
+        ++cursor;
+        if (status == VALUE)
+          curReq._headers.push_back(
+              std::pair<char *, char *>(buffer + cursor, NULL));
         if (status == HTTPVERS || status == VALUE)
           status = KEY;
-        ++cursor;
         continue;
       }
       if (rnrnCounter == 4) {
+        *bgnRnrn = '\0';
+        if (status == KEY)
+          curReq._headers.erase(curReq._headers.end());
         status = HEADERS_DONE;
         ++cursor;
+
         break;
       }
     } else
@@ -150,9 +154,12 @@ void http::Connection::hndlIncStrm(int event_fd) {
       cursor = 0;
       return;
     }
-    if (delim == ' ' || delim == ':')
+    if (delim == ' ' || delim == ':') {
       buffer[cursor] = '\0';
-    else {
+      do
+        ++cursor;
+      while (buffer[cursor] == ' ');
+    } else {
       ++rnrnCounter;
       ++cursor;
       continue;
@@ -161,6 +168,12 @@ void http::Connection::hndlIncStrm(int event_fd) {
     case NOTHING_DONE:
       status = URI;
       curReq.setUri(buffer + cursor);
+    case URI:
+      status = HTTPVERS;
+      curReq.setHttpvers(buffer + cursor);
+    case KEY:
+      status = VALUE;
+      curReq._headers[curReq._headers.size() - 1].second = buffer + cursor;
     default:;
     }
     ++cursor;

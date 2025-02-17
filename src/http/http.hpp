@@ -135,11 +135,11 @@ private:
   char *_uri;
   char *_method;
   char *_httpvers;
+
+public:
   // clang-format off
   std::vector<std::pair<char *, char *> > _headers;
   // clang-format on
-
-public:
   const char *getHeader(char const *key) const;
   char *getUri() const { return _uri; };
   char *getMethod() const { return _method; };
@@ -163,11 +163,7 @@ private:
   size_t curBuf;
   int cursor;
   RequestStatus status;
-  // char delim;
   int rnrnCounter;
-  char *bgnRnrn;
-
-  void parseRequestLine(char **buffer);
 
 public:
   void hndlIncStrm(int event_fd);
