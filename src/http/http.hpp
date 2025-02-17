@@ -12,10 +12,13 @@
 namespace http {
 enum RequestStatus {
   NOTHING_DONE = 0,
-  REQUEST_LINE_DONE,
+  METHOD,
+  URI,
+  HTTPVERS,
+  KEY,
+  VALUE,
   HEADERS_DONE,
   BODY_DONE,
-  ALL_DONE
 };
 
 // Statuses
@@ -112,14 +115,14 @@ class webbuf {
 private:
   char *buffer;
   size_t size;
-  size_t end;
-  bool full;
+  size_t cursor;
 
 public:
   bool isFull();
   void readBuf(int fd);
   size_t getSize();
-  size_t getEnd();
+  size_t getCursor();
+  void setCursor(size_t newCursor);
   char *getBuf();
   webbuf(int size);
   ~webbuf();
@@ -129,26 +132,25 @@ public:
 // Request
 class Request {
 private:
-  char *uri;
-  char *method;
-  char *httpvers;
+  char *_uri;
+  char *_method;
+  char *_httpvers;
   // clang-format off
-  std::vector<std::pair<char *, char *> > headers;
+  std::vector<std::pair<char *, char *> > _headers;
   // clang-format on
-  webbuf headerBuffer;
-  RequestStatus status;
-
-  void parseRequestLine(char **buffer);
-  bool is_whitespace(char c);
 
 public:
-  void handleData(int fd);
   const char *getHeader(char const *key) const;
-  char *getUri() const { return uri; };
-  char *getMethod() const { return method; };
-  char *getHttpvers() const { return httpvers; };
-  Request(srvparams const &params);
-  Request &operator=(Request const &req);
+  char *getUri() const { return _uri; };
+  char *getMethod() const { return _method; };
+  char *getHttpvers() const { return _httpvers; };
+  void setMethod(char *method) { _method = method; }
+  void setUri(char *uri) { _uri = uri; }
+  void setHttpvers(char *httpvers) { _httpvers = httpvers; }
+  void setHeader(char *key, char *value) {
+    _headers.push_back(std::pair<char *, char *>(key, value));
+  }
+  Request();
   ~Request();
 };
 // /Request
@@ -157,16 +159,21 @@ public:
 class Connection {
 private:
   Request curReq;
-  webbuf buf1;
-  webbuf buf2;
+  webbuf *buffers[2];
   size_t curBuf;
+  int cursor;
+  RequestStatus status;
+  // char delim;
+  int rnrnCounter;
+  char *bgnRnrn;
+
+  void parseRequestLine(char **buffer);
 
 public:
   void hndlIncStrm(int event_fd);
   Request &getReq() { return curReq; };
-  Connection(srvparams const &params)
-      : curReq(params), buf1(params.bufferSize), buf2(params.bufferSize),
-        curBuf(0) {};
+  Connection(srvparams const &params);
+  ~Connection();
 };
 // /Connection
 

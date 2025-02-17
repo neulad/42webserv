@@ -1,5 +1,6 @@
 #include "http.hpp"
 #include "../server/FilefdFactory.hpp"
+#include <cctype>
 #include <cerrno>
 #include <cstddef>
 #include <cstring>
@@ -17,80 +18,28 @@
 http::webbuf::webbuf(int size) {
   this->size = size;
   this->buffer = new char[size + 1];
-  this->full = false;
-  this->end = 0;
+  this->cursor = 0;
 }
 http::webbuf::~webbuf() { delete this->buffer; }
 
 char *http::webbuf::getBuf() { return this->buffer; }
-size_t http::webbuf::getEnd() { return this->end; }
+size_t http::webbuf::getCursor() { return this->cursor; }
+void http::webbuf::setCursor(size_t newCursor) { this->cursor = newCursor; }
 size_t http::webbuf::getSize() { return size; }
-bool http::webbuf::isFull() { return full; }
 
 void http::webbuf::readBuf(int fd) {
-  if (full)
-    return;
-  int nbytes = read(fd, this->buffer + end, this->size - end);
+  int nbytes = read(fd, this->buffer + cursor, this->size - cursor);
   if (nbytes < 0)
     throw std::runtime_error("error reading");
-  end += nbytes;
-  buffer[end] = '\0';
-  if (end == size)
-    full = true;
+  cursor += nbytes;
+  buffer[cursor] = '\0';
 }
 // /Buffer
 
 // Request
-http::Request::Request(srvparams const &params)
-    : headerBuffer(webbuf(params.bufferSize)), status(http::NOTHING_DONE) {}
+http::Request::Request() {}
 http::Request::~Request() {}
 
-void http::Request::parseRequestLine(char **buffer) {
-  method = *buffer;
-  while (**buffer != ' ') {
-    ++*buffer;
-  }
-  **buffer = '\0';
-  uri = *buffer + 1;
-  while (**buffer != ' ') {
-    ++*buffer;
-  }
-  **buffer = '\0';
-  httpvers = *buffer + 1;
-  while (**buffer != '\n') {
-    ++*buffer;
-  }
-  **buffer = '\0';
-  ++*buffer;
-}
-void http::Request::handleData(int fd) {
-  headerBuffer.readBuf(fd);
-
-  //
-  char *buffer = headerBuffer.getBuf();
-  parseRequestLine(&buffer);
-  while (status < http::HEADERS_DONE) {
-    // parse header
-    char *key = buffer;
-    while (*buffer != ':') {
-      ++buffer;
-    }
-    *buffer = '\0';
-    buffer += 2;
-
-    char *value = buffer;
-    while (*buffer != '\r' && buffer) {
-      ++buffer;
-    }
-    *buffer = '\0';
-    buffer += 2;
-    if (*buffer == '\r') {
-      buffer += 2;
-      status = http::HEADERS_DONE;
-    }
-    headers.push_back(std::make_pair(key, value));
-  }
-}
 const char *http::Request::getHeader(char const *key) const {
   for (size_t i = 0; i < headers.size(); ++i) {
     if (!strcmp(headers[i].first, key))
@@ -99,6 +48,125 @@ const char *http::Request::getHeader(char const *key) const {
   return NULL;
 };
 // /Request
+
+// Connection
+http::Connection::Connection(srvparams const &params)
+    : curBuf(0), cursor(0), status(http::NOTHING_DONE), rnrnCounter(0),
+      bgnRnrn(0) {
+  buffers[0] = new webbuf(params.bufferSize);
+  buffers[1] = new webbuf(params.bufferSize);
+};
+
+http::Connection::~Connection() {
+  delete buffers[0];
+  delete buffers[1];
+}
+
+void http::Connection::hndlIncStrm(int event_fd) {
+  buffers[curBuf]->readBuf(event_fd);
+
+  char *buffer = buffers[curBuf]->getBuf();
+
+  // parse request line
+  curReq.setMethod(&buffer[cursor]);
+  while (!std::isspace(buffer[cursor])) {
+    cursor++;
+  }
+  buffer[cursor] = '\0';
+
+  curReq.setUri(&buffer[cursor + 1]);
+  while (!std::isspace(buffer[cursor])) {
+    cursor++;
+  }
+  buffer[cursor] = '\0';
+
+  curReq.setHttpvers(&buffer[cursor + 1]);
+  while (buffer[cursor] != '\r') {
+    cursor++;
+  }
+  buffer[cursor] = '\0';
+  cursor += 2;
+
+  // parse headers
+  while (buffer[cursor] != '\r') {
+    char *key = &buffer[cursor];
+    while (buffer[cursor] != ':') {
+      cursor++;
+    }
+    buffer[cursor] = '\0';
+    cursor += 2;
+    char *value = &buffer[cursor];
+    while (buffer[cursor] != '\r' && buffer[cursor]) {
+      cursor++;
+    }
+    buffer[cursor] = '\0';
+    cursor += 2;
+    curReq.setHeader(key, value);
+  }
+  cursor += 2;
+
+  curReq.setMethod();
+
+  // curser < end
+  char const *rnrnStr = "\r\n\r\n";
+  char delim;
+  while (buffer[cursor]) {
+    if (buffer[cursor] == rnrnStr[rnrnCounter]) {
+      ++rnrnCounter;
+      if (rnrnCounter == 1)
+        bgnRnrn = buffer + cursor;
+      if (rnrnCounter == 2) {
+        *bgnRnrn = '\0';
+        if (status == HTTPVERS || status == VALUE)
+          status = KEY;
+        ++cursor;
+        continue;
+      }
+      if (rnrnCounter == 4) {
+        status = HEADERS_DONE;
+        ++cursor;
+        break;
+      }
+    } else
+      rnrnCounter = 0;
+    switch (status) {
+    case NOTHING_DONE:
+      delim = ' ';
+      curReq.setMethod(buffer + cursor);
+    case URI:
+      delim = ' ';
+    case HTTPVERS:
+      delim = '\r';
+    case KEY:
+      delim = ':';
+    case VALUE:
+      delim = '\r';
+    default:;
+    }
+    while (buffer[cursor] && buffer[cursor] != delim)
+      ++cursor;
+    if (buffer[cursor] != delim) {
+      curBuf = (curBuf + 1) % 2;
+      cursor = 0;
+      return;
+    }
+    if (delim == ' ' || delim == ':')
+      buffer[cursor] = '\0';
+    else {
+      ++rnrnCounter;
+      ++cursor;
+      continue;
+    }
+    switch (status) {
+    case NOTHING_DONE:
+      status = URI;
+      curReq.setUri(buffer + cursor);
+    default:;
+    }
+    ++cursor;
+  }
+}
+// /Connection
 
 // Response
 http::Response::Response(srvparams const &params)
