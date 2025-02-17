@@ -116,13 +116,11 @@ private:
   bool full;
 
 public:
-  void setFull();
   bool isFull();
   void readBuf(int fd);
   size_t getSize();
   size_t getEnd();
-  void setEnd(int end);
-  char *getBuffer();
+  char *getBuf();
   webbuf(int size);
   ~webbuf();
 };
@@ -154,6 +152,23 @@ public:
   ~Request();
 };
 // /Request
+
+// Connection
+class Connection {
+private:
+  Request curReq;
+  webbuf buf1;
+  webbuf buf2;
+  size_t curBuf;
+
+public:
+  void hndlIncStrm(int event_fd);
+  Request &getReq() { return curReq; };
+  Connection(srvparams const &params)
+      : curReq(params), buf1(params.bufferSize), buf2(params.bufferSize),
+        curBuf(0) {};
+};
+// /Connection
 
 // Response
 class Response {

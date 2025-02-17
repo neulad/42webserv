@@ -1,8 +1,8 @@
 // #include "../hooks/ParseQuery.hpp"
 #include "../http/http.hpp"
 #include "../utils/utils.hpp"
+#include "ConnectionFactory.hpp"
 #include "FilefdFactory.hpp"
-#include "RequestFactory.hpp"
 #include <csignal>
 #include <cstddef>
 #include <cstdlib>
@@ -71,7 +71,7 @@ void server::removeEPOLLOUT(int event_fd) {
 }
 
 int server::handleRequests() {
-  RequestFactory reqfac;
+  ConnectionFactory confac;
   FilefdFactory filefdfac(params.sendfileMaxChunk);
   std::signal(SIGINT, server::handleSignals);
 
@@ -110,14 +110,14 @@ int server::handleRequests() {
         if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
           close(event_fd);
           removeEpollEvent(event_fd);
-          reqfac.deleteRequest(event_fd);
+          confac.delConnection(event_fd);
           continue;
         }
       }
       http::Request *req;
-      if (!reqfac.ifExists(event_fd))
-        reqfac.setRequest(new http::Request(params), event_fd);
-      req = &reqfac.getRequest(event_fd);
+      if (!confac.ifExists(event_fd))
+        confac.addConnection(new http::Connection(params), event_fd);
+      req = &confac.getConnection(event_fd).getReq();
       req->handleData(event_fd);
       http::Response res(params);
       res.setHeader("Connection", "keep-alive");

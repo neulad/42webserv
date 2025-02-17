@@ -22,16 +22,10 @@ http::webbuf::webbuf(int size) {
 }
 http::webbuf::~webbuf() { delete this->buffer; }
 
-char *http::webbuf::getBuffer() { return this->buffer; }
+char *http::webbuf::getBuf() { return this->buffer; }
 size_t http::webbuf::getEnd() { return this->end; }
-void http::webbuf::setEnd(int end) {
-  this->buffer[end] = '\0';
-  this->end = end;
-  setFull();
-}
 size_t http::webbuf::getSize() { return size; }
 bool http::webbuf::isFull() { return full; }
-void http::webbuf::setFull() { full = true; }
 
 void http::webbuf::readBuf(int fd) {
   if (full)
@@ -48,8 +42,7 @@ void http::webbuf::readBuf(int fd) {
 
 // Request
 http::Request::Request(srvparams const &params)
-    : headerBuffer(webbuf(params.headerBufferSize)),
-      status(http::NOTHING_DONE) {}
+    : headerBuffer(webbuf(params.bufferSize)), status(http::NOTHING_DONE) {}
 http::Request::~Request() {}
 
 void http::Request::parseRequestLine(char **buffer) {
@@ -74,7 +67,7 @@ void http::Request::handleData(int fd) {
   headerBuffer.readBuf(fd);
 
   //
-  char *buffer = headerBuffer.getBuffer();
+  char *buffer = headerBuffer.getBuf();
   parseRequestLine(&buffer);
   while (status < http::HEADERS_DONE) {
     // parse header

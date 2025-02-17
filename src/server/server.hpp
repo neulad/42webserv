@@ -13,11 +13,11 @@ class Response;
 typedef struct s_srvparams {
   bool production;
   int workerConnections;
-  int headerBufferSize;
+  int bufferSize;
   int sendfileMaxChunk;
   std::string protocol;
   s_srvparams()
-      : production(false), workerConnections(512), headerBufferSize(8192),
+      : production(false), workerConnections(512), bufferSize(8192),
         sendfileMaxChunk(1024 * 4), protocol("HTTP/1.1") {}
 } srvparams;
 
