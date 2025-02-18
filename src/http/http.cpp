@@ -126,7 +126,8 @@ void http::Connection::hndlIncStrm(int event_fd) {
     default:;
     }
     while (buffer[cursor] && buffer[cursor] != delim) {
-      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+      if ((iscntrl(buffer[cursor]) || isspace(buffer[cursor])) &&
+          status != VALUE)
         throw std::runtime_error("400");
       ++cursor;
     }

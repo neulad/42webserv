@@ -114,14 +114,14 @@ int server::handleRequests() {
           continue;
         }
       }
-      http::Request *req;
+      http::Connection *conn;
       if (!confac.ifExists(event_fd))
         confac.addConnection(new http::Connection(params), event_fd);
-      req = &confac.getConnection(event_fd).getReq();
-      req->handleData(event_fd);
+      conn = &confac.getConnection(event_fd);
+      conn->hndlIncStrm(event_fd);
       http::Response res(params);
       res.setHeader("Connection", "keep-alive");
-      runHooks(*req, res);
+      runHooks(conn->getReq(), res);
       // res.setStatusCode(http::OK);
       // res.setStatusMessage("OK");
       // res.setHeader("Content-Type", "text/x-c++");
@@ -131,7 +131,7 @@ int server::handleRequests() {
       // if (quryString != NULL)
       //   std::cout << (*quryString)["hello"];
       if (!res.isBodyReady())
-        routeRequest(*req, res);
+        routeRequest(conn->getReq(), res);
       res.end(event_fd, filefdfac);
       if (filefdfac.ifExists(event_fd)) {
         addEPOLLOUT(event_fd);
