@@ -65,65 +65,32 @@ void http::Connection::hndlIncStrm(int event_fd) {
   buffers[curBuf]->readBuf(event_fd);
 
   char *buffer = buffers[curBuf]->getBuf();
-
-  // parse request line
-  // curReq.setMethod(&buffer[cursor]);
-  // while (!std::isspace(buffer[cursor])) {
-  //   cursor++;
-  // }
-  // buffer[cursor] = '\0';
-
-  // curReq.setUri(&buffer[cursor + 1]);
-  // while (!std::isspace(buffer[cursor])) {
-  //   cursor++;
-  // }
-  // buffer[cursor] = '\0';
-
-  // curReq.setHttpvers(&buffer[cursor + 1]);
-  // while (buffer[cursor] != '\r') {
-  //   cursor++;
-  // }
-  // buffer[cursor] = '\0';
-  // cursor += 2;
-
-  // parse headers
-  // while (buffer[cursor] != '\r') {
-  //   char *key = &buffer[cursor];
-  //   while (buffer[cursor] != ':') {
-  //     cursor++;
-  //   }
-  //   buffer[cursor] = '\0';
-  //   cursor += 2;
-  //   char *value = &buffer[cursor];
-  //   while (buffer[cursor] != '\r' && buffer[cursor]) {
-  //     cursor++;
-  //   }
-  //   buffer[cursor] = '\0';
-  //   cursor += 2;
-  //   curReq.setHeader(key, value);
-  // }
-  // cursor += 2;
-  // curser < end
   char const *rnrnStr = "\r\n\r\n";
   char delim;
   char *bgnRnrn;
   while (buffer[cursor]) {
     if (buffer[cursor] == rnrnStr[rnrnCounter]) {
       ++rnrnCounter;
-      if (rnrnCounter == 1)
+      if (rnrnCounter == 1) {
         bgnRnrn = buffer + cursor;
+        ++cursor;
+        continue;
+      }
       if (rnrnCounter == 2) {
         *bgnRnrn = '\0';
         ++cursor;
-        if (status == VALUE)
+        if (status == VALUE || status == HTTPVERS)
           curReq._headers.push_back(
               std::pair<char *, char *>(buffer + cursor, NULL));
         if (status == HTTPVERS || status == VALUE)
           status = KEY;
         continue;
       }
+      if (rnrnCounter == 3) {
+        ++cursor;
+        continue;
+      }
       if (rnrnCounter == 4) {
-        *bgnRnrn = '\0';
         if (status == KEY)
           curReq._headers.erase(curReq._headers.end());
         status = HEADERS_DONE;
@@ -137,14 +104,19 @@ void http::Connection::hndlIncStrm(int event_fd) {
     case NOTHING_DONE:
       delim = ' ';
       curReq.setMethod(buffer + cursor);
+      break;
     case URI:
       delim = ' ';
+      break;
     case HTTPVERS:
       delim = '\r';
+      break;
     case KEY:
       delim = ':';
+      break;
     case VALUE:
       delim = '\r';
+      break;
     default:;
     }
     while (buffer[cursor] && buffer[cursor] != delim)
@@ -161,6 +133,7 @@ void http::Connection::hndlIncStrm(int event_fd) {
       while (buffer[cursor] == ' ');
     } else {
       ++rnrnCounter;
+      bgnRnrn = buffer + cursor;
       ++cursor;
       continue;
     }
@@ -168,12 +141,15 @@ void http::Connection::hndlIncStrm(int event_fd) {
     case NOTHING_DONE:
       status = URI;
       curReq.setUri(buffer + cursor);
+      break;
     case URI:
       status = HTTPVERS;
       curReq.setHttpvers(buffer + cursor);
+      break;
     case KEY:
       status = VALUE;
       curReq._headers[curReq._headers.size() - 1].second = buffer + cursor;
+      break;
     default:;
     }
     ++cursor;
