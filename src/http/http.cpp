@@ -77,13 +77,15 @@ void http::Connection::hndlIncStrm(int event_fd) {
         continue;
       }
       if (rnrnCounter == 2) {
+        if (status != VALUE && status != HTTPVERS) {
+          curReq._headers.erase(curReq._headers.end());
+          throw std::runtime_error("400");
+        }
         *bgnRnrn = '\0';
         ++cursor;
-        if (status == VALUE || status == HTTPVERS)
-          curReq._headers.push_back(
-              std::pair<char *, char *>(buffer + cursor, NULL));
-        if (status == HTTPVERS || status == VALUE)
-          status = KEY;
+        curReq._headers.push_back(
+            std::pair<char *, char *>(buffer + cursor, NULL));
+        status = KEY;
         continue;
       }
       if (rnrnCounter == 3) {
@@ -91,11 +93,9 @@ void http::Connection::hndlIncStrm(int event_fd) {
         continue;
       }
       if (rnrnCounter == 4) {
-        if (status == KEY)
-          curReq._headers.erase(curReq._headers.end());
         status = HEADERS_DONE;
+        curReq._headers.erase(curReq._headers.end());
         ++cursor;
-
         break;
       }
     } else
@@ -103,6 +103,8 @@ void http::Connection::hndlIncStrm(int event_fd) {
     switch (status) {
     case NOTHING_DONE:
       delim = ' ';
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       curReq.setMethod(buffer + cursor);
       break;
     case URI:
@@ -112,15 +114,22 @@ void http::Connection::hndlIncStrm(int event_fd) {
       delim = '\r';
       break;
     case KEY:
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       delim = ':';
       break;
     case VALUE:
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       delim = '\r';
       break;
     default:;
     }
-    while (buffer[cursor] && buffer[cursor] != delim)
+    while (buffer[cursor] && buffer[cursor] != delim) {
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       ++cursor;
+    }
     if (buffer[cursor] != delim) {
       curBuf = (curBuf + 1) % 2;
       cursor = 0;
@@ -128,9 +137,7 @@ void http::Connection::hndlIncStrm(int event_fd) {
     }
     if (delim == ' ' || delim == ':') {
       buffer[cursor] = '\0';
-      do
-        ++cursor;
-      while (buffer[cursor] == ' ');
+      cursor += 1;
     } else {
       ++rnrnCounter;
       bgnRnrn = buffer + cursor;
@@ -139,15 +146,24 @@ void http::Connection::hndlIncStrm(int event_fd) {
     }
     switch (status) {
     case NOTHING_DONE:
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       status = URI;
       curReq.setUri(buffer + cursor);
       break;
     case URI:
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       status = HTTPVERS;
       curReq.setHttpvers(buffer + cursor);
       break;
     case KEY:
+      if (buffer[cursor] != ' ')
+        throw std::runtime_error("400");
       status = VALUE;
+      ++cursor;
+      if (iscntrl(buffer[cursor]) || isspace(buffer[cursor]))
+        throw std::runtime_error("400");
       curReq._headers[curReq._headers.size() - 1].second = buffer + cursor;
       break;
     default:;
