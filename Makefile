@@ -1,5 +1,5 @@
 NAME := webserv
-CPP_FLAGS := -Wall -Wextra -Werror -std=c++98
+CPP_FLAGS := -Wall -Wextra -Werror -std=c++98 -g
 
 SRC := src/main.cpp src/server/server.cpp src/server/FilefdFactory.cpp \
 	src/http/http.cpp src/server/ConnectionFactory.cpp \
@@ -20,7 +20,7 @@ fclean: clean
 	rm -rf $(NAME)
 re: fclean all
 test:
-	c++ $(SRC) -g -o test
+	c++ $(SRC) -Wall -Wextra -Werror -o test
 
 .PHONY: all clean fclean re test
 

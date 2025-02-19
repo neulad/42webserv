@@ -20,7 +20,7 @@ http::webbuf::webbuf(int size) {
   this->buffer = new char[size + 1];
   this->cursor = 0;
 }
-http::webbuf::~webbuf() { delete this->buffer; }
+http::webbuf::~webbuf() { delete[] this->buffer; }
 
 char *http::webbuf::getBuf() { return this->buffer; }
 size_t http::webbuf::getCursor() { return this->cursor; }
@@ -94,7 +94,8 @@ void http::Connection::hndlIncStrm(int event_fd) {
       }
       if (rnrnCounter == 4) {
         status = HEADERS_DONE;
-        curReq._headers.erase(curReq._headers.end());
+        if (!curReq._headers.empty())
+          curReq._headers.pop_back();
         ++cursor;
         break;
       }
