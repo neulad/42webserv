@@ -95,6 +95,8 @@ int server::handleRequests() {
         addEpollEvent(clntfd, EPOLLIN);
         continue;
       }
+
+      // Sending the file to the user
       if (events[i].events & EPOLLOUT) {
         if (n < 5)
           usleep(1);
@@ -105,6 +107,8 @@ int server::handleRequests() {
         }
         continue;
       }
+
+      // Check if the user sent FIN (final) package
       {
         char buffer[1];
         if (recv(event_fd, buffer, 1, MSG_PEEK) <= 0) {
@@ -118,27 +122,52 @@ int server::handleRequests() {
       if (!confac.ifExists(event_fd))
         confac.addConnection(new http::Connection(params), event_fd);
       conn = &confac.getConnection(event_fd);
-      conn->hndlIncStrm(event_fd);
-      http::Response res(params);
-      res.setHeader("Connection", "keep-alive");
-      runHooks(conn->getReq(), res);
-      // res.setStatusCode(http::OK);
-      // res.setStatusMessage("OK");
-      // res.setHeader("Content-Type", "text/x-c++");
-      // res.setBodyPath("./src/http/http.cpp");
-      // queryStringType *quryString =
-      //     res.getHookMap<queryStringType>("queryString");
-      // if (quryString != NULL)
-      //   std::cout << (*quryString)["hello"];
-      if (!res.isBodyReady())
-        routeRequest(conn->getReq(), res);
-      res.end(event_fd, filefdfac);
+    continue_next_request:
+      try {
+        conn->hndlIncStrm(event_fd);
+        if (conn->status < http::ALL_DONE)
+          continue;
+        http::Response res(params);
+
+        // Setting default headers
+        res.setHeader("Connection", "keep-alive");
+
+        // Running middlewares
+        runHooks(conn->getReq(), res);
+
+        // res.setStatusCode(http::OK);
+        // res.setStatusMessage("OK");
+        // res.setHeader("Content-Type", "text/x-c++");
+        // res.setBodyPath("./src/http/http.cpp");
+        // queryStringType *quryString =
+        //     res.getHookMap<queryStringType>("queryString");
+        // if (quryString != NULL)
+        //   std::cout << (*quryString)["hello"];
+        /**
+         * If the middlewares haven't finished the response already
+         * then route our endpoints
+         */
+        if (!res.isBodyReady())
+          routeRequest(conn->getReq(), res);
+        res.end(event_fd, filefdfac);
+      } catch (...) {
+        std::string response =
+            "HTTP/1.1 500 Internal Server Error\r\n"
+            "Content-Type: text/html\r\n"
+            "Content-Length: 52\r\n"
+            "\r\n"
+            "<html><body><h1>500 Internal Server Error</h1></body></html>";
+
+        send(event_fd, response.c_str(), response.size(), 0);
+        close(event_fd);
+        removeEpollEvent(event_fd);
+        confac.delConnection(event_fd);
+      }
       if (filefdfac.ifExists(event_fd)) {
         addEPOLLOUT(event_fd);
       }
-      // close(event_fd);
-      // removeEpollEvent(event_fd);
-      // reqfac.deleteRequest(event_fd);
+      if (conn->status == http::NEXT_REQUEST)
+        goto continue_next_request;
     }
   }
   return 1;
@@ -214,7 +243,10 @@ void server::del(std::string endpoint, HandleFunc func) {
 }
 
 void server::routeRequest(http::Request const &req, http::Response &res) {
-  std::map<std::string, HandleFunc> &methodEndpoints = router[req.getMethod()];
+  std::map<std::string, HandleFunc> &methodEndpoints =
+      router[std::string(req.getMethod().pos) +
+             (req.getMethod().nxtBuf ? std::string(req.getMethod().nxtBuf)
+                                     : std::string())];
   HandleFunc func;
   for (std::map<std::string, HandleFunc>::iterator it = methodEndpoints.begin();
        it != methodEndpoints.end(); ++it) {

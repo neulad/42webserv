@@ -62,7 +62,9 @@ std::string getMimeType(const std::string &filename) {
 
 void StaticHandler::operator()(http::Request const &req,
                                http::Response &res) const {
-  std::string filePath = "." + std::string(req.getUri());
+  std::string filePath =
+      "." + std::string(req.getUri().pos) +
+      (req.getUri().nxtBuf ? std::string(req.getUri().nxtBuf) : std::string());
   if (std::strncmp(filePath.c_str() + 2, dirPath.c_str(), dirPath.length()) !=
       0)
     return;

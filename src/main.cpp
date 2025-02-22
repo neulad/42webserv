@@ -6,7 +6,6 @@
 #include <cstring>
 #include <iostream>
 
-#include "hooks/HandleJson.hpp"
 #include "hooks/HandleStatic.hpp"
 #include "hooks/ParseQuery.hpp"
 #include "http/http.hpp"

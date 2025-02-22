@@ -2,7 +2,9 @@
 
 void parseQueryString(http::Request const &req, http::Response &res) {
   // Extract the URI from the request
-  const std::string uri = req.getUri();
+  const std::string uri =
+      std::string(req.getUri().pos) +
+      (req.getUri().nxtBuf ? std::string(req.getUri().nxtBuf) : std::string());
 
   // Find the position of the query string
   size_t queryStart = uri.find('?');

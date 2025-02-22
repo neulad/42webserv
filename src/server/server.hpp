@@ -15,10 +15,13 @@ typedef struct s_srvparams {
   int workerConnections;
   int bufferSize;
   int sendfileMaxChunk;
+  size_t clientBodySize;
+  size_t clientBodyBufferSize;
   std::string protocol;
   s_srvparams()
-      : production(false), workerConnections(512), bufferSize(8192),
-        sendfileMaxChunk(1024 * 4), protocol("HTTP/1.1") {}
+      : production(false), workerConnections(512), bufferSize(8 * 1024),
+        sendfileMaxChunk(1024 * 4), clientBodySize(1024 * 1000),
+        clientBodyBufferSize(1024 * 1000), protocol("HTTP/1.1") {}
 } srvparams;
 
 typedef void (*HandleFunc)(http::Request const &req, http::Response &res);

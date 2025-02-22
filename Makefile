@@ -3,8 +3,7 @@ CPP_FLAGS := -Wall -Wextra -Werror -std=c++98 -g
 
 SRC := src/main.cpp src/server/server.cpp src/server/FilefdFactory.cpp \
 	src/http/http.cpp src/server/ConnectionFactory.cpp \
-	src/utils/utils.cpp src/hooks/ParseQuery.cpp src/hooks/HandleStatic.cpp \
-	src/hooks/HandleJson.cpp
+	src/utils/utils.cpp src/hooks/ParseQuery.cpp src/hooks/HandleStatic.cpp
 OBJS := $(SRC:.cpp=.o)
 all: $(NAME)
 

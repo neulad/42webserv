@@ -1,85 +1,96 @@
 #include "utils.hpp"
 #include <cstddef>
 #include <cstring>
-#include <sstream>
 
-std::vector<std::string> utils::splitBeforeNewline(std::string const &str,
-                                                   size_t const cursor) {
-  if (cursor == str.size())
-    return std::vector<std::string>();
-  std::vector<std::string> result;
-  size_t newline_pos = str.find(cursor, '\n');
-  std::string part = str.substr(cursor, newline_pos);
+bool utils::cmpWebStrs(http::webStr str1, http::webStr str2) {
+  const char *ptr1 = str1.pos;
+  const char *ptr2 = str2.pos;
 
-  std::istringstream iss(part);
-  std::string word;
-  while (iss >> word) {
-    result.push_back(word);
-  }
-
-  return result;
-}
-
-bool utils::iCompare(const std::string &str1, const std::string &str2) {
-  if (str1.length() != str2.length()) {
-    return false;
-  }
-  for (size_t i = 0; i < str1.length(); ++i) {
-    if (tolower(str1[i]) != tolower(str2[i])) {
-      return false;
+  while (ptr1 && ptr2) {
+    while (*ptr1 && *ptr2) {
+      if (*ptr1 != *ptr2)
+        return false;
+      ++ptr1;
+      ++ptr2;
     }
-  }
-  return true;
-}
-
-bool utils::seqPresent(char const *seq, ...) {
-  va_list args;
-  va_start(args, seq);
-
-  char *curr;
-  int reps = strlen(seq);
-  int count = 0;
-  while ((curr = va_arg(args, char *)) != NULL) {
-    while (*curr) {
-      if (seq[count] == *curr++)
-        ++count;
-      else
-        count = 0;
-      if (count == reps)
-        return va_end(args), true;
+    if (*ptr1 == '\0' && str1.nxtBuf) {
+      ptr1 = str1.nxtBuf;
+      str1.nxtBuf = NULL;
     }
-  }
-  va_end(args);
-  return false;
-}
-
-bool utils::anyPresent(char const *any, char *str) {
-  size_t anylen = strlen(any);
-  while (*str)
-    for (size_t i = 0; i < anylen; ++i) {
-      if (any[i] == *str)
-        return true;
-      ++str;
+    if (*ptr2 == '\0' && str2.nxtBuf) {
+      ptr2 = str2.nxtBuf;
+      str2.nxtBuf = NULL;
     }
-  return false;
+    if (*ptr1 == '\0' && *ptr2 == '\0')
+      return true;
+  }
+  return (*ptr1 == '\0' && *ptr2 == '\0');
 }
 
-bool utils::matchEndpoint(const std::string &endpoint, const std::string &uri) {
+bool utils::cmpWebStrs(http::webStr str1, char *str2) {
+  const char *ptr1 = str1.pos;
+  while (ptr1 && str2) {
+    while (*ptr1 && *str2) {
+      if (*ptr1 != *str2)
+        return false;
+      ++ptr1;
+      ++str2;
+    }
+    if (*ptr1 == '\0' && str1.nxtBuf) {
+      ptr1 = str1.nxtBuf;
+      str1.nxtBuf = NULL;
+    }
+    if (*ptr1 == '\0' && *str2 == '\0')
+      return true;
+  }
+  return (*ptr1 == '\0' && *str2 == '\0');
+}
+
+bool utils::cmpWebStrs(char *str1, http::webStr str2) {
+  return cmpWebStrs(str2, str1);
+}
+size_t utils::webStrToSizeT(const http::webStr &wstr) {
+  std::string combinedStr;
+
+  if (wstr.pos) {
+    combinedStr += wstr.pos;
+  }
+  if (wstr.nxtBuf) {
+    combinedStr += wstr.nxtBuf;
+  }
+  return std::strtoull(combinedStr.c_str(), NULL, 10);
+}
+
+bool utils::matchEndpoint(const std::string &endpoint,
+                          const http::webStr &uri) {
   size_t starPos = endpoint.find('*');
 
   if (starPos == std::string::npos) {
-    return endpoint == uri;
+    // Compare endpoint with the whole uri
+    const char *uriPtr = uri.pos;
+    if (uri.nxtBuf) {
+      std::string fullUri(uri.pos);
+      fullUri += uri.nxtBuf;
+      return endpoint == fullUri;
+    }
+    return endpoint == uriPtr;
   }
 
   std::string beforeStar = endpoint.substr(0, starPos);
   std::string afterStar = endpoint.substr(starPos + 1);
 
-  if (uri.size() < beforeStar.size() + afterStar.size()) {
+  // Convert webStr to a single std::string for easier comparison
+  std::string fullUri(uri.pos);
+  if (uri.nxtBuf) {
+    fullUri += uri.nxtBuf;
+  }
+
+  if (fullUri.size() < beforeStar.size() + afterStar.size()) {
     return false; // URI is too short to match
   }
 
-  if (uri.substr(0, beforeStar.size()) == beforeStar &&
-      uri.substr(uri.size() - afterStar.size()) == afterStar) {
+  if (fullUri.substr(0, beforeStar.size()) == beforeStar &&
+      fullUri.substr(fullUri.size() - afterStar.size()) == afterStar) {
     return true;
   }
 

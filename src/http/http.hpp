@@ -12,13 +12,14 @@
 namespace http {
 enum RequestStatus {
   NOTHING_DONE = 0,
-  METHOD,
   URI,
   HTTPVERS,
   KEY,
   VALUE,
   HEADERS_DONE,
-  BODY_DONE,
+  BODY_STARTED,
+  ALL_DONE,
+  NEXT_REQUEST
 };
 
 // Statuses
@@ -129,27 +130,57 @@ public:
 };
 // /Buffer
 
+// webStr
+struct webStr {
+  char *pos;
+  char *nxtBuf;
+  webStr(char *pos_, char *nxtBuf_) : pos(pos_), nxtBuf(nxtBuf_) {}
+  webStr() : pos(NULL), nxtBuf(NULL) {}
+};
+std::ostream &operator<<(std::ostream &os, const webStr &str);
+// /webStr
+
 // Request
 class Request {
 private:
-  char *_uri;
-  char *_method;
-  char *_httpvers;
+  webStr _uri;
+  webStr _method;
+  webStr _httpvers;
+  char *body;
+  std::string bodyPath;
 
 public:
   // clang-format off
-  std::vector<std::pair<char *, char *> > _headers;
+  std::vector<std::pair<webStr, webStr> > _headers;
   // clang-format on
-  const char *getHeader(char const *key) const;
-  char *getUri() const { return _uri; };
-  char *getMethod() const { return _method; };
-  char *getHttpvers() const { return _httpvers; };
-  void setMethod(char *method) { _method = method; }
-  void setUri(char *uri) { _uri = uri; }
-  void setHttpvers(char *httpvers) { _httpvers = httpvers; }
-  void setHeader(char *key, char *value) {
-    _headers.push_back(std::pair<char *, char *>(key, value));
+  std::string getBodyPath() { return bodyPath; };
+  void setBodyPath(std::string path) { bodyPath = path; };
+  webStr getHeader(char const *key) const;
+  webStr getUri() const { return _uri; };
+  webStr getMethod() const { return _method; };
+  webStr getHttpvers() const { return _httpvers; };
+  void setMethod(char *pos_, char *nxtBuf_) {
+    if (pos_)
+      _method.pos = pos_;
+    if (nxtBuf_)
+      _method.nxtBuf = nxtBuf_;
   }
+  void setUri(char *pos_, char *nxtBuf_) {
+    if (pos_)
+      _uri.pos = pos_;
+    if (nxtBuf_)
+      _uri.nxtBuf = nxtBuf_;
+  }
+  void setHttpvers(char *pos_, char *nxtBuf_) {
+    if (pos_)
+      _httpvers.pos = pos_;
+    if (nxtBuf_)
+      _httpvers.nxtBuf = nxtBuf_;
+  }
+  void setHeader(webStr key, webStr value) {
+    _headers.push_back(std::pair<webStr, webStr>(key, value));
+  }
+  void setBody(char *body_) { body = body_; }
   Request();
   ~Request();
 };
@@ -160,12 +191,18 @@ class Connection {
 private:
   Request curReq;
   webbuf *buffers[2];
+  char *bodyBuffer;
   size_t curBuf;
   int cursor;
-  RequestStatus status;
   int rnrnCounter;
+  int reqLen;
+  srvparams params;
+  size_t bodyReadBytes;
+  size_t contentLength;
+  int bodyFd;
 
 public:
+  RequestStatus status;
   void hndlIncStrm(int event_fd);
   Request &getReq() { return curReq; };
   Connection(srvparams const &params);
