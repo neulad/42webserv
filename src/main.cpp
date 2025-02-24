@@ -34,7 +34,6 @@ int main() {
   srv.hook(Log);
   srv.hook(parseQueryString);
   srv.hook(handleStatic);
-  // srv.hook(handleJson);
 
   srv.get("/", GetCars);
   if (srv.listenAndServe() == -1)

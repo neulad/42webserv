@@ -315,8 +315,8 @@ http::Response::~Response() {
     }
   }
 }
-void http::Response::setStatusCode(int statusCode) {
-  statusCode = int(statusCode);
+void http::Response::setStatusCode(int statusCode_) {
+  statusCode = statusCode_;
 };
 void http::Response::setStatusMessage(std::string const statusMessage_) {
   statusMessage = statusMessage_;

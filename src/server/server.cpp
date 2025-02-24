@@ -123,11 +123,11 @@ int server::handleRequests() {
         confac.addConnection(new http::Connection(params), event_fd);
       conn = &confac.getConnection(event_fd);
     continue_next_request:
+      http::Response res(params);
       try {
         conn->hndlIncStrm(event_fd);
         if (conn->status < http::ALL_DONE)
           continue;
-        http::Response res(params);
 
         // Setting default headers
         res.setHeader("Connection", "keep-alive");
@@ -135,37 +135,40 @@ int server::handleRequests() {
         // Running middlewares
         runHooks(conn->getReq(), res);
 
-        // res.setStatusCode(http::OK);
-        // res.setStatusMessage("OK");
-        // res.setHeader("Content-Type", "text/x-c++");
-        // res.setBodyPath("./src/http/http.cpp");
-        // queryStringType *quryString =
-        //     res.getHookMap<queryStringType>("queryString");
-        // if (quryString != NULL)
-        //   std::cout << (*quryString)["hello"];
-        /**
-         * If the middlewares haven't finished the response already
-         * then route our endpoints
-         */
+        // If the hooks haven't set body already find an endpoint handler
         if (!res.isBodyReady())
           routeRequest(conn->getReq(), res);
         res.end(event_fd, filefdfac);
-      } catch (...) {
-        std::string response =
-            "HTTP/1.1 500 Internal Server Error\r\n"
-            "Content-Type: text/html\r\n"
-            "Content-Length: 52\r\n"
-            "\r\n"
-            "<html><body><h1>500 Internal Server Error</h1></body></html>";
-
-        send(event_fd, response.c_str(), response.size(), 0);
+      } catch (const http::HttpError &e) {
+        res.setStatusCode(e.getStatus());
+        res.setStatusMessage(utils::getHttpStatusMessage(e.getStatus()));
+        res.setBody(e.what());
+        res.end(event_fd, filefdfac);
         close(event_fd);
         removeEpollEvent(event_fd);
         confac.delConnection(event_fd);
+        continue;
+      } catch (const std::exception &e) {
+        res.setStatusCode(http::InternalServerError);
+        res.setStatusMessage("Internal Server Error");
+        res.setBody(e.what());
+        res.end(event_fd, filefdfac);
+        close(event_fd);
+        removeEpollEvent(event_fd);
+        confac.delConnection(event_fd);
+        continue;
+      } catch (...) {
+        res.setStatusCode(http::InternalServerError);
+        res.setStatusMessage("Internal Server Error");
+        res.setBody("Unknown error!");
+        res.end(event_fd, filefdfac);
+        close(event_fd);
+        removeEpollEvent(event_fd);
+        confac.delConnection(event_fd);
+        continue;
       }
-      if (filefdfac.ifExists(event_fd)) {
+      if (filefdfac.ifExists(event_fd))
         addEPOLLOUT(event_fd);
-      }
       if (conn->status == http::NEXT_REQUEST)
         goto continue_next_request;
     }
