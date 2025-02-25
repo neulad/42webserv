@@ -1,8 +1,10 @@
+
 #include "HandleCGI.hpp"
 #include <cstddef>
 #include <fcntl.h>
 #include <fstream>
 #include <ostream>
+#include <unistd.h>
 
 char *joinStrings(char *str1, const char *str2) {
   size_t len1 = str1 ? std::strlen(str1) : 0;
@@ -27,9 +29,16 @@ char *readFdToString(int fd) {
   char buffer[1001];
   ssize_t bytes_read;
 
+  if (fd < 0) {
+      std::cerr << "Error: Invalid file descriptor!" << std::endl;
+      return NULL;
+  }
   while ((bytes_read = read(fd, buffer, 1000)) > 0) {
-    buffer[bytes_read] = '\0';
-    res = joinStrings(res, buffer);
+      buffer[bytes_read] = '\0';
+      res = joinStrings(res, buffer);
+  }
+  if (bytes_read < 0) {
+      perror("Error reading from file descriptor");
   }
 
   return res;
@@ -69,8 +78,25 @@ void handleParent(char *query, bool isPost, int *pipefd, pid_t pid) {
   waitpid(pid, NULL, 0);
 }
 
+void parseHttpResponse(const char *response, std::string &key, std::string &value, std::string &body) {
+    std::istringstream stream(response);
+    std::string line;
+
+    if (std::getline(stream, line) && !line.empty()) {
+        size_t pos = line.find(":");
+        if (pos != std::string::npos) {
+            key = line.substr(0, pos); // Extract "Content-Type"
+            value = line.substr(pos + 1); // Extract " text/html"
+            value.erase(0, value.find_first_not_of(" ")); // Trim leading spaces
+        }
+    }
+
+    std::getline(stream, body, '\0');
+}
+
 void handleCgi(http::Request const &req, http::Response &res) {
   int output = open("outputcgi.txt", O_CREAT | O_TRUNC | O_RDWR, 0644);
+  int outCpy = dup(STDOUT_FILENO);
   if (output < 0)
     throw std::runtime_error("Couldn't open a file!");
   else {
@@ -111,9 +137,19 @@ void handleCgi(http::Request const &req, http::Response &res) {
     if (!req.getBodyPath().empty())
       delete[] queryString;
   }
-  char *body = readFdToString(output);
-  res.setHeader("Content-Type", "text/html");
-  res.setBody("<html><body><h1>Hello, Guest, "
-              "aged 15!</h1></body></html>");
+  dup2(outCpy, STDOUT_FILENO);
+  close(outCpy);
+  int test = open("outputcgi.txt", O_RDONLY, 0644);
+  char *result = readFdToString(test);
+  std::string key;
+  std::string value;
+  std::string body;
+  parseHttpResponse(result, key, value, body);
+
+  std::cout << "KEY: " << key << std::endl;
+  std::cout << "VAL: " << value << std::endl;
+  std::cout << "BODY: " << body << std::endl;
+  res.setHeader(key, value);
+  res.setBody(body);
   close(output);
 }
