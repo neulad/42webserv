@@ -59,6 +59,7 @@ void handleChild(char *path, bool isPost, int *pipefd) {
     dup2(pipefd[0], STDIN_FILENO);
     close(pipefd[0]);
   }
+  setenv("QUERY_STRING", "name=Johnny&age=18", 1);
   if (access(path, F_OK) == 0) {
     // Later change python to check with extension using config
     const char *args[] = {"/usr/bin/python3", path, NULL};
@@ -113,7 +114,9 @@ void handleCgi(http::Request const &req, http::Response &res) {
     throw std::runtime_error("Failed to create a fork!");
   } else if (pid == 0) {
     http::webStr uri = req.getUri();
-    char *tmp = !uri.nxtBuf ? uri.pos : joinStrings(uri.pos, uri.nxtBuf);
+    char *tmp = !uri.nxtBuf ? strdup(uri.pos) : joinStrings(uri.pos, uri.nxtBuf);
+    char *chuj = strchr(tmp, '?');
+    *chuj = '\0';
     handleChild(tmp + 1, isPost, pipefd);
     // Move somewhere else (execve in handleChild)
     if (tmp != uri.pos)
@@ -122,9 +125,9 @@ void handleCgi(http::Request const &req, http::Response &res) {
     char *queryString;
     http::webStr uri = req.getUri();
     char *tmp = !uri.nxtBuf ? uri.pos : joinStrings(uri.pos, uri.nxtBuf);
-    if (!isPost)
+    if (!isPost) {
       queryString = strchr(tmp, '?') + 1;
-    else {
+    } else {
       if (req.getBodyPath().empty()) {
         queryString = req.getBody();
       } else {
@@ -146,10 +149,15 @@ void handleCgi(http::Request const &req, http::Response &res) {
   std::string body;
   parseHttpResponse(result, key, value, body);
 
-  std::cout << "KEY: " << key << std::endl;
-  std::cout << "VAL: " << value << std::endl;
-  std::cout << "BODY: " << body << std::endl;
   res.setHeader(key, value);
   res.setBody(body);
   close(output);
 }
+
+/*
+TODO:
+- make queryString available for child and parent
+- set environments at the beginning
+- try to experiment with piping output -> input, input -> output
+- clean this shit a little
+*/
