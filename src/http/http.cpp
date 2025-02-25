@@ -359,3 +359,11 @@ void http::Response::end(int event_fd, FilefdFactory &filefdfaq) {
   }
 }
 // /Response
+
+std::string http::Request::getBodyPath() const {
+  return this->bodyPath;
+}
+
+char *http::Request::getBody() const {
+  return body;
+}

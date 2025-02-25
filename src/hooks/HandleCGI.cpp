@@ -1,10 +1,5 @@
 #include "HandleCGI.hpp"
-#include "../utils/utils.hpp"
-#include <cstdlib>
-#include <cstring>
-#include <stdexcept>
-#include <string>
-#include <unistd.h>
+#include <fstream>
 
 char *joinStrings(const char *str1, const char *str2) {
   if (!str1)
@@ -21,6 +16,25 @@ char *joinStrings(const char *str1, const char *str2) {
   }
 
   return result;
+}
+
+std::string readFdToString(int fd) {
+  std::string content;
+  char buffer[1024];
+  ssize_t bytesRead;
+
+  while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0) {
+    content.append(buffer, bytesRead);
+  }
+
+  return content;
+}
+
+char *mergeBody(char *string, std::string path) {
+  int fd = open(path.c_str(), O_RDONLY);
+  std::string content = readFdToString(fd);
+  close(fd);
+  return joinStrings(string, content.c_str());
 }
 
 void handleChild(char *path, bool isPost, int *pipefd) {
@@ -76,11 +90,18 @@ void handleCgi(http::Request const &req, http::Response &res) {
     char *tmp = !uri.nxtBuf ? uri.pos : joinStrings(uri.pos, uri.nxtBuf);
     if (!isPost)
       queryString = strchr(tmp, '?') + 1;
-    else
-      queryString = req.getBody();
+    else {
+      if (req.getBodyPath().empty()) {
+        queryString = req.getBody();
+      } else {
+        queryString = mergeBody(req.getBody(), req.getBodyPath());
+      }
+    }
     handleParent(queryString, isPost, pipefd, pid);
     if (tmp != uri.pos)
       delete[] tmp;
+    if (!req.getBodyPath().empty())
+      delete[] queryString;
   }
   close(output);
 }

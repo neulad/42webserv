@@ -153,7 +153,7 @@ public:
   // clang-format off
   std::vector<std::pair<webStr, webStr> > _headers;
   // clang-format on
-  std::string getBodyPath() { return bodyPath; };
+  std::string getBodyPath() const;
   void setBodyPath(std::string path) { bodyPath = path; };
   webStr getHeader(char const *key) const;
   webStr getUri() const { return _uri; };
@@ -181,7 +181,7 @@ public:
     _headers.push_back(std::pair<webStr, webStr>(key, value));
   }
   void setBody(char *body_) { body = body_; }
-  char *getBody() { return body; }
+  char *getBody() const;
   Request();
   ~Request();
 };
