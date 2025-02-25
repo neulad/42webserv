@@ -28,9 +28,14 @@ void handleStatic(http::Request const &req, http::Response &res) {
   staticHandler(req, res);
 }
 
-int main() {
+int main(int ac, char **av) {
+  const std::string configPath = ac > 1 ? av[1] : "src/config/default.conf";
+
   srvparams params;
-  server srv(8080, params);
+  // server srv(params, configPath);
+  // server *srv = server::getInstance(params, configPath);
+  server &srv = server::getInstance(params, configPath);
+  server::serverInst = &srv;
   srv.hook(Log);
   srv.hook(parseQueryString);
   srv.hook(handleStatic);
@@ -38,5 +43,6 @@ int main() {
   srv.get("/", GetCars);
   if (srv.listenAndServe() == -1)
     return perror("Error on the server: "), 1;
+  server::destroyInstance();
   return 0;
 }

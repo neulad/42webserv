@@ -1,6 +1,8 @@
 // #include "../hooks/ParseQuery.hpp"
+#include "server.hpp"
 #include "../http/http.hpp"
 #include "../utils/utils.hpp"
+#include "Config.hpp"
 #include "ConnectionFactory.hpp"
 #include "FilefdFactory.hpp"
 #include <csignal>
@@ -14,27 +16,27 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <vector>
 
-/**
- * Static fields
- */
-std::vector<server *> server::servers;
+// server
+server *server::serverInst = NULL;
+int server::epollfd = -1;
+bool server::stop_proc;
 
 void server::handleSignals(int signal) {
-  if (signal == SIGINT)
-    for (size_t i = 0; i < server::servers.size(); ++i) {
-      server::servers[i]->stop();
-    }
+  if (signal == SIGINT && server::serverInst) {
+    server::serverInst->stop();
+  }
 }
 
-int server::bindSocket() {
+int server::bindSocket(int srvfd, int port) {
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(this->port);
+  addr.sin_port = htons(port);
   addr.sin_addr.s_addr = INADDR_ANY;
 
-  if (bind(this->srvfd, (sockaddr *)&addr, sizeof(addr))) {
-    close(this->srvfd);
+  if (bind(srvfd, (sockaddr *)&addr, sizeof(addr))) {
+    close(srvfd);
     return -1;
   }
   return 1;
@@ -44,8 +46,16 @@ int server::addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent) {
   struct epoll_event event;
   event.events = epollEvent;
   event.data.fd = fd;
-  if (epoll_ctl(this->epollfd, EPOLL_CTL_ADD, fd, &event) == -1)
+  std::cout << "Attempting to add epoll event for fd: " << fd << std::endl;
+  std::cout << "Epoll FD: " << this->epollfd << std::endl;
+
+  if (epoll_ctl(this->epollfd, EPOLL_CTL_ADD, fd, &event) == -1) {
+    std::cerr << "epoll_ctl failed for fd: " << fd
+              << " with error: " << strerror(errno) << std::endl;
     return -1;
+  }
+
+  std::cout << "Epoll event added for fd: " << fd << std::endl;
   return 1;
 }
 
@@ -88,13 +98,18 @@ int server::handleRequests() {
       fcntl(event_fd, F_SETFL, fcntl(event_fd, F_GETFL, 0) | O_NONBLOCK);
 
       // Check if it is a request for connection or new data
-      if (event_fd == this->srvfd) {
-        int clntfd = accept(this->srvfd, NULL, NULL);
-        if (clntfd == -1)
-          continue;
-        addEpollEvent(clntfd, EPOLLIN);
-        continue;
+      int clntfd = -1;
+      for (size_t i = 0; i < this->_serverFDs.size(); ++i) {
+        if (event_fd == this->_serverFDs[i]) {
+          clntfd = accept(this->_serverFDs[i], NULL, NULL);
+          if (clntfd == -1)
+            continue;
+          addEpollEvent(clntfd, EPOLLIN);
+          break;
+        }
       }
+      if (clntfd != -1)
+        continue;
 
       // Sending the file to the user
       if (events[i].events & EPOLLOUT) {
@@ -115,6 +130,7 @@ int server::handleRequests() {
           close(event_fd);
           removeEpollEvent(event_fd);
           confac.delConnection(event_fd);
+          std::cerr << "test" << std::endl;
           continue;
         }
       }
@@ -177,38 +193,70 @@ int server::handleRequests() {
 }
 
 int server::listenAndServe() {
-  // First create a socket for the server
-  this->srvfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (this->srvfd == -1)
-    return -1;
-  if (!this->params.production) {
-    int opt = 1;
-    if (setsockopt(this->srvfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) <
-        0)
+  const std::vector<ServerConfig> configs = _config.getServerConfigs();
+
+  for (size_t i = 0; i < configs.size(); i++) {
+    int srvfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (srvfd == -1) {
       return -1;
+    }
+
+    if (!this->params.production) {
+      int opt = 1;
+      if (setsockopt(srvfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        close(srvfd);
+        return -1;
+      }
+    }
+    if (bindSocket(srvfd, configs[i].port) == -1) {
+      close(srvfd);
+      return -1;
+    }
+
+    if (listen(srvfd, params.workerConnections) == -1) {
+      close(srvfd);
+      return -1;
+    }
+
+    if (addEpollEvent(srvfd, EPOLLIN) == -1) {
+      close(srvfd);
+      return -1;
+    }
+
+    std::cout << "Server is listening on port :" << configs[i].port
+              << std::endl;
+    _serverFDs.push_back(srvfd);
   }
 
-  if (bindSocket() == -1)
+  // Start handling requests
+  if (handleRequests() == -1) {
     return -1;
-  // Now listen to the incoming connections
-  if (listen(this->srvfd, params.workerConnections) == -1)
-    return -1;
-  if ((this->epollfd = epoll_create1(0)) == -1)
-    return -1;
-  if (addEpollEvent(this->srvfd, EPOLLIN) == -1)
-    return -1;
-  std::cout << "Server is listening on port :" << this->port << std::endl;
-  if (handleRequests() == -1)
-    return -1;
+  }
+
+  // Cleanup
+  // for (size_t i = 0; i < _serverFDs.size(); i++) {
+  //   close(_serverFDs[i]);
+  // }
+
   return 0;
 }
 
 void server::stop() {
-  this->stop_proc = true;
-  if (this->srvfd != -1)
-    close(this->srvfd);
-  if (this->epollfd != -1)
-    close(this->epollfd);
+  server::stop_proc = true;
+
+  for (size_t i = 0; i < _serverFDs.size(); i++) {
+    if (_serverFDs[i] != -1) {
+      close(_serverFDs[i]);
+      _serverFDs[i] = -1;
+    }
+  }
+
+  if (epollfd != -1) {
+    close(epollfd);
+    epollfd = -1;
+  }
+
+  this->_serverFDs.clear();
 }
 
 void server::runHooks(http::Request &req, http::Response &res) {
@@ -216,21 +264,68 @@ void server::runHooks(http::Request &req, http::Response &res) {
     hooks[i](req, res);
 }
 
-server::server(int port, srvparams const &params)
-    : srvfd(-1), port(port), epollfd(-1), stop_proc(false), params(params) {
-  for (size_t i = 0; i < servers.size(); ++i) {
-    if (servers[i]->port == port)
-      throw std::logic_error("Ports must be different for each server");
+server::server(srvparams const &params, const std::string &configPath)
+    : _config(configPath), params(params) {
+
+  this->epollfd = epoll_create1(0);
+  if (this->epollfd == -1) {
+    std::cerr << "Failed to create epoll instance: " << strerror(errno)
+              << std::endl;
+    throw std::runtime_error("Failed to create epoll instance");
   }
   this->events = new epoll_event[params.workerConnections];
-  this->servers.push_back(this);
+
+  //// PRINT CONFIGURATION VALUES ////
+  // std::vector<ServerConfig> serverConfigs = _config.getServerConfigs();
+  // for (size_t i = 0; i < serverConfigs.size(); ++i) {
+  //   ServerConfig &server = serverConfigs[i];
+
+  //   std::cout << "Server " << (i + 1) << ":\n";
+  //   std::cout << "Host: " << server.host << "\n";
+  //   std::cout << "Port: " << server.port << "\n";
+  //   std::cout << "Server Name: " << server.server_name << "\n";
+  //   std::cout << "Client Max Body Size: " << server.client_max_body_size
+  //             << "\n";
+
+  //   std::cout << "Error Pages:\n";
+  //   std::map<int, std::string>::iterator it;
+  //   for (it = server.error_pages.begin(); it != server.error_pages.end();
+  //        ++it) {
+  //     std::cout << "  " << it->first << ": " << it->second << "\n";
+  //   }
+
+  //   std::cout << "Routes:\n";
+  //   std::map<std::string, RouteConfig>::iterator routeIt;
+  //   for (routeIt = server.routes.begin(); routeIt != server.routes.end();
+  //        ++routeIt) {
+  //     std::cout << "  Path: " << routeIt->first << "\n";
+  //     std::cout << "    Methods: ";
+
+  //     std::vector<std::string>::iterator methodIt;
+  //     for (methodIt = routeIt->second.methods.begin();
+  //          methodIt != routeIt->second.methods.end(); ++methodIt) {
+  //       std::cout << *methodIt << " ";
+  //     }
+
+  //     std::cout << "\n    Root: " << routeIt->second.root;
+  //     std::cout << "\n    Index: " << routeIt->second.index;
+  //     std::cout << "\n    Redirect: " << routeIt->second.redirect << "\n";
+  //   }
+
+  //   std::cout << "--------------------------\n";
+  // }
+  //// PRINT CONFIGURATION VALUES ////
+
+  // for (size_t i = 0; i < servers.size(); ++i) {
+  //   if (servers[i]->port == port)
+  //     throw std::logic_error("Ports must be different for each server");
+  // }
+
+  // this->servers.push_back(this);
 }
 server::~server() {
-  this->stop();
-  delete this->events;
-  for (size_t i = 0; i < this->servers.size(); ++i)
-    if (this == this->servers[i])
-      this->servers.erase(this->servers.begin() + i);
+  stop();
+  delete[] events;
 }
 
 // Handlers
@@ -261,4 +356,4 @@ void server::routeRequest(http::Request const &req, http::Response &res) {
   }
   throw http::HttpError("The endpoint couldn't be found", http::NotFound);
 }
-// /Handlers
+// /server

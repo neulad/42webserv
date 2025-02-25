@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config.hpp"
 #include <map>
 #include <string>
 #include <sys/epoll.h>
@@ -25,22 +26,26 @@ typedef struct s_srvparams {
 } srvparams;
 
 typedef void (*HandleFunc)(http::Request const &req, http::Response &res);
-class server {
 
+class server {
 private:
-  int srvfd;
-  int port;
-  int epollfd;
-  bool stop_proc;
-  static std::vector<server *> servers;
+  static bool stop_proc;
+  Config _config;
+  std::vector<int> _serverFDs;
+  static int epollfd;
   struct epoll_event *events;
-  int bindSocket();
+
+  server(srvparams const &params, const std::string &configPath);
+  ~server();
+
+  int bindSocket(int srvfd, int port);
   int addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent);
   void addEPOLLOUT(int event_fd);
   void removeEpollEvent(int fd);
   void removeEPOLLOUT(int event_fd);
   int handleRequests();
   static void handleSignals(int signal);
+
   std::vector<HandleFunc> hooks;
   // clang-format off
   std::map<std::string, std::map<std::string, HandleFunc> > router;
@@ -48,8 +53,13 @@ private:
   void routeRequest(http::Request const &req, http::Response &res);
 
 public:
-  server(int port, srvparams const &params);
-  ~server();
+  static server *serverInst;
+  static server &getInstance(srvparams const &params,
+                             const std::string &configPath) {
+    static server instance(params, configPath);
+    return instance;
+  }
+  static void destroyInstance() { serverInst = NULL; }
 
   void hook(HandleFunc);
   void get(std::string const endpoint, HandleFunc);
