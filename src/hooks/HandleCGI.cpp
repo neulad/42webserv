@@ -1,40 +1,47 @@
 #include "HandleCGI.hpp"
+#include <cstddef>
+#include <fcntl.h>
 #include <fstream>
+#include <ostream>
 
-char *joinStrings(const char *str1, const char *str2) {
-  if (!str1)
-    return NULL;
-
-  size_t len1 = std::strlen(str1);
-  size_t len2 = (str2 ? std::strlen(str2) : 0);
+char *joinStrings(char *str1, const char *str2) {
+  size_t len1 = str1 ? std::strlen(str1) : 0;
+  size_t len2 = str2 ? std::strlen(str2) : 0;
 
   char *result = new char[len1 + len2 + 1];
-  std::strcpy(result, str1);
-
-  if (str2) {
-    std::strcat(result, str2);
+  if (!result)
+    return NULL;
+  if (str1) {
+    std::strcpy(result, str1);
+    delete[] str1;
+  } else {
+    result[0] = '\0';
   }
-
+  if (str2)
+    std::strcat(result, str2);
   return result;
 }
 
-std::string readFdToString(int fd) {
-  std::string content;
-  char buffer[1024];
-  ssize_t bytesRead;
+char *readFdToString(int fd) {
+  char *res = NULL;
+  char buffer[1001];
+  ssize_t bytes_read;
 
-  while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0) {
-    content.append(buffer, bytesRead);
+  while ((bytes_read = read(fd, buffer, 1000)) > 0) {
+    buffer[bytes_read] = '\0';
+    res = joinStrings(res, buffer);
   }
 
-  return content;
+  return res;
 }
 
 char *mergeBody(char *string, std::string path) {
   int fd = open(path.c_str(), O_RDONLY);
-  std::string content = readFdToString(fd);
+  if (fd < 0)
+    return NULL;
+  char *content = readFdToString(fd);
   close(fd);
-  return joinStrings(string, content.c_str());
+  return joinStrings(string, content);
 }
 
 void handleChild(char *path, bool isPost, int *pipefd) {
@@ -63,7 +70,7 @@ void handleParent(char *query, bool isPost, int *pipefd, pid_t pid) {
 }
 
 void handleCgi(http::Request const &req, http::Response &res) {
-  int output = open("tmp/outputcgi.txt", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+  int output = open("outputcgi.txt", O_CREAT | O_TRUNC | O_RDWR, 0644);
   if (output < 0)
     throw std::runtime_error("Couldn't open a file!");
   else {
@@ -81,7 +88,8 @@ void handleCgi(http::Request const &req, http::Response &res) {
   } else if (pid == 0) {
     http::webStr uri = req.getUri();
     char *tmp = !uri.nxtBuf ? uri.pos : joinStrings(uri.pos, uri.nxtBuf);
-    handleChild(tmp, isPost, pipefd);
+    handleChild(tmp + 1, isPost, pipefd);
+    // Move somewhere else (execve in handleChild)
     if (tmp != uri.pos)
       delete[] tmp;
   } else {
@@ -103,5 +111,9 @@ void handleCgi(http::Request const &req, http::Response &res) {
     if (!req.getBodyPath().empty())
       delete[] queryString;
   }
+  char *body = readFdToString(output);
+  res.setHeader("Content-Type", "text/html");
+  res.setBody("<html><body><h1>Hello, Guest, "
+              "aged 15!</h1></body></html>");
   close(output);
 }

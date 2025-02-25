@@ -46,16 +46,12 @@ int server::addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent) {
   struct epoll_event event;
   event.events = epollEvent;
   event.data.fd = fd;
-  std::cout << "Attempting to add epoll event for fd: " << fd << std::endl;
-  std::cout << "Epoll FD: " << this->epollfd << std::endl;
 
   if (epoll_ctl(this->epollfd, EPOLL_CTL_ADD, fd, &event) == -1) {
     std::cerr << "epoll_ctl failed for fd: " << fd
               << " with error: " << strerror(errno) << std::endl;
     return -1;
   }
-
-  std::cout << "Epoll event added for fd: " << fd << std::endl;
   return 1;
 }
 

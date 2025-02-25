@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "hooks/HandleCGI.hpp"
 #include "hooks/HandleStatic.hpp"
 #include "hooks/ParseQuery.hpp"
 #include "http/http.hpp"
@@ -37,6 +38,7 @@ int main(int ac, char **av) {
   server &srv = server::getInstance(params, configPath);
   server::serverInst = &srv;
   srv.hook(Log);
+  srv.hook(handleCgi);
   srv.hook(parseQueryString);
   srv.hook(handleStatic);
 
