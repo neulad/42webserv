@@ -181,6 +181,7 @@ public:
     _headers.push_back(std::pair<webStr, webStr>(key, value));
   }
   void setBody(char *body_) { body = body_; }
+  char *getBody() { return body; }
   Request();
   ~Request();
 };
