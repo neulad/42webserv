@@ -1,4 +1,5 @@
 #include "HandleCGI.hpp"
+#include <cstdlib>
 #include <fcntl.h>
 #include <sstream>
 #include <stdexcept>
@@ -72,7 +73,7 @@ void setBody(std::string response, http::Response &res) {
     res.setHeader("Content-Length", ss.str());
 }
 
-void handleChild(const char *path, bool isPost, int *pipefd) {
+void handleChild(const char *path, const char *query, bool isPost, int *pipefd) {
     if (isPost) {
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
@@ -80,6 +81,7 @@ void handleChild(const char *path, bool isPost, int *pipefd) {
     }
     if (access(path, F_OK) == 0) {
         int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
+        setenv("QUERY_STRING", query, 1);
         const char *args[] = {"/usr/bin/python3", path, NULL};
         extern char **environ;
         dup2(output, STDOUT_FILENO);
@@ -98,30 +100,30 @@ void handleParent(const char *query, bool isPost, int *pipefd, pid_t pid) {
     waitpid(pid, NULL, 0);
 }
 
+bool isCgi(std::string path) {
+    if (path.find(".py")) {
+        return true;
+    }
+    return false;
+}
+
 void handleCgi(http::Request const &req, http::Response &res) {
-    (void)res;
+    if (!isCgi(getPath(req.getUri())))
+        return ;
     bool isPost = utils::cmpWebStrs(req.getMethod(), (char*)"POST");
     pid_t pid = safeFork();
     int pipefd[2];
     std::string uri = req.getUri();
+    std::string queryString = getQueryString(uri);
     if (isPost)
         pipe(pipefd);
     if (pid == 0) {
-        handleChild(getPath(uri).c_str(), isPost, pipefd);
+        handleChild(getPath(uri).c_str(), queryString.c_str(), isPost, pipefd);
     } else {
-        handleParent(getQueryString(uri).c_str(), isPost, pipefd, pid);
+        handleParent(queryString.c_str(), isPost, pipefd, pid);
     }
     std::string result = readFileToString("output.txt");
     setBody(result, res);
     setHeader(result, res);
     std::remove("output.txt");
 }
-
-/*
-TODO:
-- make queryString available for child and parent
-- set environments at the beginning
-- try to experiment with piping output -> input, input -> output
-- clean this shit a little
-- check extension (if cgi)
-*/
