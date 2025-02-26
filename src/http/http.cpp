@@ -436,6 +436,11 @@ void http::Response::end(int event_fd, FilefdFactory &filefdfaq) {
       filefdfaq.addFdoffset(event_fd, filefd, fileSize, offset);
   }
 }
+
+std::string http::Response::getBody() const {
+    return this->body;
+}
+
 // /Response
 
 std::string http::Request::getBodyPath() const {

@@ -12,7 +12,6 @@ void parseQueryString(http::Request const &req, http::Response &res) {
     res.setHookMap<queryStringType>("queryString", new queryStringType());
     return;
   }
-
   // Extract the query string part
   std::string queryString = uri.substr(queryStart + 1);
 
@@ -36,7 +35,6 @@ void parseQueryString(http::Request const &req, http::Response &res) {
 
     (*queryMap)[key] = value;
   }
-
   // Add the map to the response using setHookMap
   res.setHookMap("queryString", queryMap);
 }

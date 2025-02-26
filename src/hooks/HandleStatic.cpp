@@ -1,6 +1,7 @@
 #include "HandleStatic.hpp"
 #include "../http/http.hpp"
 #include <fstream>
+#include <iostream>
 #include <sys/stat.h>
 
 std::string getMimeType(const std::string &filename) {
