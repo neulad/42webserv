@@ -1,6 +1,7 @@
 #include "HandleCGI.hpp"
 #include <cstdlib>
 #include <fcntl.h>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <sys/types.h>
@@ -54,20 +55,19 @@ void setHeader(std::string response, http::Response &res) {
     std::string key;
     std::string value;
     ssize_t pos = response.find(":");
-    ssize_t pos2 = response.find("\n");
-
+    ssize_t pos2 = response.find_first_of("\n");
     if (pos <= 0)
         throw std::runtime_error("Mariusz smierdzi ze hej");
     key = response.substr(0, pos);
-    value = response.substr(pos + 2, pos2);
+    value = response.substr(pos + 2, pos2 - (pos + 2));
     res.setHeader(key, value);
 }
 
 void setBody(std::string response, http::Response &res) {
-    ssize_t pos = response.find("\n");
+    ssize_t pos = response.find_first_of("\n");
     std::string body = response.substr(pos + 1, response.size());
     res.setBody(body);
-    int contentLength = response.size() - pos;
+    int contentLength = body.length();
     std::stringstream ss;
     ss << contentLength;
     res.setHeader("Content-Length", ss.str());
@@ -81,28 +81,36 @@ void handleChild(const char *path, const char *query, bool isPost, int *pipefd) 
     }
     if (access(path, F_OK) == 0) {
         int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
-        setenv("QUERY_STRING", query, 1);
+        if (!isPost)
+            setenv("QUERY_STRING", query, 1);
         const char *args[] = {"/usr/bin/python3", path, NULL};
         extern char **environ;
         dup2(output, STDOUT_FILENO);
         close(output);
         execve(args[0], (char* const*)args, environ);
+        throw http::HttpError("Can't exec the CGI file.", http::BadRequest);
     }
     throw http::HttpError("Can't access the CGI file.", http::BadRequest);
 }
 
 void handleParent(const char *query, bool isPost, int *pipefd, pid_t pid) {
     if (isPost) {
-        close(pipefd[0]);
-        write(pipefd[1], query, strlen(query));
+        ssize_t written = write(pipefd[1], query, strlen(query));
+        if (written == -1) {
+            std::cerr << "Error writing to pipe: " << strerror(errno) << std::endl;
+            exit(1);
+        }
         close(pipefd[1]);
     }
     waitpid(pid, NULL, 0);
+    close(pipefd[0]);
 }
 
-bool isCgi(std::string path) {
-    if (path.find(".py")) {
-        return true;
+bool isCgi(const std::string& path) {
+    size_t pos = path.find_last_of('.');
+    if (pos != std::string::npos) {
+        std::string ext = path.substr(pos);
+        return (ext == ".py");
     }
     return false;
 }
@@ -111,16 +119,22 @@ void handleCgi(http::Request const &req, http::Response &res) {
     if (!isCgi(getPath(req.getUri())))
         return ;
     bool isPost = utils::cmpWebStrs(req.getMethod(), (char*)"POST");
-    pid_t pid = safeFork();
     int pipefd[2];
     std::string uri = req.getUri();
-    std::string queryString = getQueryString(uri);
-    if (isPost)
-        pipe(pipefd);
-    if (pid == 0) {
-        handleChild(getPath(uri).c_str(), queryString.c_str(), isPost, pipefd);
-    } else {
+    std::string queryString = isPost ? req.getBody() : getQueryString(uri);
+    if (isPost) {
+        if (pipe(pipefd) == -1)
+            throw http::HttpError("Pipes creation failed.", http::InternalServerError);
+        std::stringstream ss;
+        ss << queryString.length();
+        setenv("CONTENT_TYPE", "application/x-www-form-urlencoded", 1);
+        setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
+    }
+    pid_t pid = safeFork();
+    if (pid != 0) {
         handleParent(queryString.c_str(), isPost, pipefd, pid);
+    } else {
+        handleChild(getPath(uri).c_str(), queryString.c_str(), isPost, pipefd);
     }
     std::string result = readFileToString("output.txt");
     setBody(result, res);

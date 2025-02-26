@@ -40,7 +40,7 @@ int main(int ac, char **av) {
   srv.hook(Log);
   srv.hook(handleCgi);
   srv.hook(parseQueryString);
-  srv.hook(handleStatic);
+  // srv.hook(handleStatic);
 
   srv.get("/", GetCars);
   if (srv.listenAndServe() == -1)
