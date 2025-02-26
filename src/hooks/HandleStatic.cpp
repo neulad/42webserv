@@ -62,28 +62,27 @@ std::string getMimeType(const std::string &filename) {
 
 void StaticHandler::operator()(http::Request const &req,
                                http::Response &res) const {
-  std::string filePath =
-      "." + std::string(req.getUri().pos) +
-      (req.getUri().nxtBuf ? std::string(req.getUri().nxtBuf) : std::string());
+  std::string filePath = "." + std::string(req.getUri());
   if (std::strncmp(filePath.c_str() + 2, dirPath.c_str(), dirPath.length()) !=
       0)
     return;
+
   std::ifstream file;
   file.open(filePath.c_str());
-  if (file.is_open()) {
-    struct stat fileStat;
-    stat(filePath.c_str(), &fileStat);
-    if (S_ISDIR(fileStat.st_mode))
-      file.close(), throw http::HttpError("The requested path is a directory",
-                                          http::Forbidden);
-    res.setBodyPath(filePath);
-    unsigned long fileSize = fileStat.st_size;
-    std::ostringstream fileSizeString;
-    fileSizeString << fileSize;
-    res.setHeader("Content-Length", fileSizeString.str());
-    res.setHeader("Content-Type", getMimeType(filePath));
-  } else
-    file.close(),
-        throw http::HttpError("The file doesn't exist", http::NotFound);
+  if (!file.is_open())
+    throw http::HttpError("The file doesn't exist", http::NotFound);
+  struct stat fileStat;
+  stat(filePath.c_str(), &fileStat);
+  if (S_ISDIR(fileStat.st_mode))
+    file.close(), throw http::HttpError("The requested path is a directory",
+                                        http::Forbidden);
+  res.setBodyPath(filePath);
+
+  unsigned long fileSize = fileStat.st_size;
+  std::ostringstream fileSizeString;
+  fileSizeString << fileSize;
+
+  res.setHeader("Content-Length", fileSizeString.str());
+  res.setHeader("Content-Type", getMimeType(filePath));
   file.close();
 }

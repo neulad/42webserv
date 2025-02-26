@@ -193,7 +193,6 @@ int server::listenAndServe() {
     if (srvfd == -1) {
       return -1;
     }
-
     if (!this->params.production) {
       int opt = 1;
       if (setsockopt(srvfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
@@ -205,17 +204,14 @@ int server::listenAndServe() {
       close(srvfd);
       return -1;
     }
-
     if (listen(srvfd, params.workerConnections) == -1) {
       close(srvfd);
       return -1;
     }
-
     if (addEpollEvent(srvfd, EPOLLIN) == -1) {
       close(srvfd);
       return -1;
     }
-
     std::cout << "Server is listening on port :" << configs[i].port
               << std::endl;
     _serverFDs.push_back(srvfd);
@@ -225,11 +221,6 @@ int server::listenAndServe() {
   if (handleRequests() == -1) {
     return -1;
   }
-
-  // Cleanup
-  // for (size_t i = 0; i < _serverFDs.size(); i++) {
-  //   close(_serverFDs[i]);
-  // }
 
   return 0;
 }
@@ -267,54 +258,6 @@ server::server(srvparams const &params, const std::string &configPath)
     throw std::runtime_error("Failed to create epoll instance");
   }
   this->events = new epoll_event[params.workerConnections];
-
-  //// PRINT CONFIGURATION VALUES ////
-  // std::vector<ServerConfig> serverConfigs = _config.getServerConfigs();
-  // for (size_t i = 0; i < serverConfigs.size(); ++i) {
-  //   ServerConfig &server = serverConfigs[i];
-
-  //   std::cout << "Server " << (i + 1) << ":\n";
-  //   std::cout << "Host: " << server.host << "\n";
-  //   std::cout << "Port: " << server.port << "\n";
-  //   std::cout << "Server Name: " << server.server_name << "\n";
-  //   std::cout << "Client Max Body Size: " << server.client_max_body_size
-  //             << "\n";
-
-  //   std::cout << "Error Pages:\n";
-  //   std::map<int, std::string>::iterator it;
-  //   for (it = server.error_pages.begin(); it != server.error_pages.end();
-  //        ++it) {
-  //     std::cout << "  " << it->first << ": " << it->second << "\n";
-  //   }
-
-  //   std::cout << "Routes:\n";
-  //   std::map<std::string, RouteConfig>::iterator routeIt;
-  //   for (routeIt = server.routes.begin(); routeIt != server.routes.end();
-  //        ++routeIt) {
-  //     std::cout << "  Path: " << routeIt->first << "\n";
-  //     std::cout << "    Methods: ";
-
-  //     std::vector<std::string>::iterator methodIt;
-  //     for (methodIt = routeIt->second.methods.begin();
-  //          methodIt != routeIt->second.methods.end(); ++methodIt) {
-  //       std::cout << *methodIt << " ";
-  //     }
-
-  //     std::cout << "\n    Root: " << routeIt->second.root;
-  //     std::cout << "\n    Index: " << routeIt->second.index;
-  //     std::cout << "\n    Redirect: " << routeIt->second.redirect << "\n";
-  //   }
-
-  //   std::cout << "--------------------------\n";
-  // }
-  //// PRINT CONFIGURATION VALUES ////
-
-  // for (size_t i = 0; i < servers.size(); ++i) {
-  //   if (servers[i]->port == port)
-  //     throw std::logic_error("Ports must be different for each server");
-  // }
-
-  // this->servers.push_back(this);
 }
 server::~server() {
   stop();
@@ -334,18 +277,19 @@ void server::del(std::string endpoint, HandleFunc func) {
 }
 
 void server::routeRequest(http::Request const &req, http::Response &res) {
-  std::map<std::string, HandleFunc> &methodEndpoints =
-      router[std::string(req.getMethod().pos) +
-             (req.getMethod().nxtBuf ? std::string(req.getMethod().nxtBuf)
-                                     : std::string())];
+  std::string method = req.getMethod();
+  std::map<std::string, HandleFunc> &methodEndpoints = router[method];
   HandleFunc func;
-  for (std::map<std::string, HandleFunc>::iterator it = methodEndpoints.begin();
-       it != methodEndpoints.end(); ++it) {
-    if (utils::matchEndpoint(it->first, req.getUri())) {
-      func = it->second;
+  std::map<std::string, HandleFunc>::iterator iterator =
+      methodEndpoints.begin();
+
+  while (iterator != methodEndpoints.end()) {
+    if (utils::matchEndpoint(iterator->first, req.getUri())) {
+      func = iterator->second;
       func(req, res);
       return;
     }
+    ++iterator;
   }
   throw http::HttpError("The endpoint couldn't be found", http::NotFound);
 }

@@ -254,6 +254,7 @@ private:
   }
 
 public:
+  bool done;
   void end(int fd, FilefdFactory &filefdfaq);
   void setStatusCode(int const statusCode);
   void setStatusMessage(std::string const statusMessage);

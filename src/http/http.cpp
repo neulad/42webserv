@@ -181,6 +181,7 @@ void http::Connection::hndlIncStrm(int event_fd) {
     }
     return;
   }
+
   if (status <= ALL_DONE) {
     buffers[curBuf]->readBuf(event_fd);
   }
@@ -343,8 +344,7 @@ void http::Connection::hndlIncStrm(int event_fd) {
     ;
   }
   if (status == HEADERS_DONE &&
-      (utils::cmpWebStrs(curReq.getMethod(), (char *)"GET") ||
-       utils::cmpWebStrs(curReq.getMethod(), (char *)"DELETE"))) {
+      (curReq.getMethod() == "GET" || curReq.getMethod() == "DELETE")) {
     status = ALL_DONE;
     if (buffer[cursor])
       status = NEXT_REQUEST;

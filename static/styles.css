@@ -1,0 +1,21 @@
+body {
+	font-family: Arial, sans-serif;
+	margin: 20px;
+	padding: 20px;
+}
+
+gallery {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.car {
+	text-align: center;
+}
+
+.car img {
+	width: 200px;
+	height: auto;
+	border-radius: 10px;
+}
