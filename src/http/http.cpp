@@ -15,18 +15,6 @@
 #include <unistd.h>
 #include <utility>
 
-// webStr
-std::ostream &http::operator<<(std::ostream &os, const webStr &str) {
-  if (str.pos) {
-    os << str.pos;
-  }
-  if (str.nxtBuf) {
-    os << str.nxtBuf;
-  }
-  return os;
-}
-// /webStr
-
 // webbuf
 http::webbuf::webbuf(int size) {
   this->size = size;
@@ -48,6 +36,96 @@ void http::webbuf::readBuf(int fd) {
   buffer[cursor] = '\0';
 }
 // /webbuf
+
+// webStr
+long http::webStr::size() const {
+  if (!_posSize) {
+    while (pos[_size])
+      ++_size;
+    _posSize = _size;
+  }
+  if (nxtBuf && !_nxtBufSize) {
+    long nxtBufSize = 0;
+    while (nxtBuf[nxtBufSize])
+      ++nxtBufSize;
+    _nxtBufSize = nxtBufSize;
+    _size += nxtBufSize;
+  }
+  return _size;
+}
+http::webStr::webStr(char *pos_, char *nxtBuf_) {
+  if (!pos_)
+    throw std::logic_error("pos_ can't be NULL");
+  pos = pos_;
+  nxtBuf = nxtBuf_;
+  _size = 0;
+  _posSize = 0;
+  _nxtBufSize = 0;
+  size();
+}
+http::webStr::operator std::string() const {
+  std::string result = (pos ? std::string(pos) : "");
+  if (nxtBuf)
+    result += std::string(nxtBuf);
+  return result;
+}
+char http::webStr::operator[](size_t index) const {
+  if (index < static_cast<size_t>(_posSize)) {
+    return pos[index];
+  } else if (nxtBuf && index < static_cast<size_t>(_size)) {
+    return nxtBuf[index - _posSize];
+  }
+  throw std::out_of_range("Index out of range in webStr");
+}
+bool http::webStr::operator==(const webStr &other) const {
+  if (size() != other.size())
+    return false;
+  for (long i = 0; i < size(); ++i) {
+    if ((*this)[i] != other[i])
+      return false;
+  }
+  return true;
+}
+bool http::webStr::operator==(const char *str) const {
+  if (!str)
+    return false;
+  size_t i = 0;
+  while (i < static_cast<size_t>(size()) && str[i]) {
+    if ((*this)[i] != str[i])
+      return false;
+    ++i;
+  }
+  return i == static_cast<size_t>(size()) && str[i] == '\0';
+}
+bool operator==(const char *str, const http::webStr &ws) { return ws == str; }
+bool http::webStr::operator==(const std::string &rhs) const {
+  return std::string(*this) == rhs;
+}
+bool operator==(const std::string &lhs, const http::webStr &rhs) {
+  return rhs == lhs;
+}
+bool http::webStr::operator!=(const webStr &other) const {
+  return !(*this == other);
+}
+bool http::webStr::operator!=(const std::string &rhs) const {
+  return !(*this == rhs);
+}
+bool http::webStr::operator!=(const char *rhs) const { return !(*this == rhs); }
+bool operator!=(const char *lhs, const http::webStr &rhs) {
+  return !(rhs == lhs);
+}
+
+// Reload of << operator
+std::ostream &http::operator<<(std::ostream &os, const webStr &str) {
+  if (str.pos) {
+    os << str.pos;
+  }
+  if (str.nxtBuf) {
+    os << str.nxtBuf;
+  }
+  return os;
+}
+// /webStr
 
 // Request
 http::Request::Request() {}

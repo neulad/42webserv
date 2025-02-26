@@ -131,12 +131,37 @@ public:
 // /Buffer
 
 // webStr
-struct webStr {
+class webStr {
+private:
+  mutable long _size;
+  mutable long _posSize;
+  mutable long _nxtBufSize;
+
+public:
   char *pos;
   char *nxtBuf;
-  webStr(char *pos_, char *nxtBuf_) : pos(pos_), nxtBuf(nxtBuf_) {}
-  webStr() : pos(NULL), nxtBuf(NULL) {}
+  // Size function, now correctly marked const
+  long size() const;
+
+  // Constructors
+  webStr() : _size(0), _posSize(0), _nxtBufSize(0), pos(NULL), nxtBuf(NULL) {}
+  webStr(char *pos_, char *nxtBuf_);
+
+  operator std::string() const;
+  char operator[](size_t index) const;
+  bool operator==(const webStr &other) const;
+  bool operator==(const char *str) const;
+  friend bool operator==(const char *str, const webStr &ws);
+  bool operator==(const std::string &rhs) const;
+  friend bool operator==(const std::string &lhs, const webStr &rhs);
+
+  // Inequality operators
+  bool operator!=(const webStr &other) const;
+  bool operator!=(const std::string &rhs) const;
+  bool operator!=(const char *rhs) const;
+  friend bool operator!=(const char *lhs, const webStr &rhs);
 };
+
 std::ostream &operator<<(std::ostream &os, const webStr &str);
 // /webStr
 

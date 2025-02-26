@@ -47,11 +47,8 @@ int server::addEpollEvent(int fd, enum EPOLL_EVENTS epollEvent) {
   event.events = epollEvent;
   event.data.fd = fd;
 
-  if (epoll_ctl(this->epollfd, EPOLL_CTL_ADD, fd, &event) == -1) {
-    std::cerr << "epoll_ctl failed for fd: " << fd
-              << " with error: " << strerror(errno) << std::endl;
+  if (epoll_ctl(this->epollfd, EPOLL_CTL_ADD, fd, &event) == -1)
     return -1;
-  }
   return 1;
 }
 
