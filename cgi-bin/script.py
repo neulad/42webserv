@@ -49,7 +49,7 @@ html_content = f"""<!DOCTYPE html>
         <div class="card p-4">
             <h1 class="text-primary">{greeting}!</h1>
             <p class="lead">Welcome to my Python CGI-powered website.</p>
-            <form method="post" action="/cgi/script.py">
+            <form method="post" action="/cgi-bin/script.py">
                 <div class="mb-3">
                     <label for="name" class="form-label">Enter your name:</label>
                     <input type="text" id="name" name="name" class="form-control" placeholder="Your name" required>

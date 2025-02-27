@@ -116,6 +116,7 @@ bool isCgi(const std::string& path) {
 }
 
 void handleCgi(http::Request const &req, http::Response &res) {
+    unsetenv("CONTENT_LENGTH");
     if (!isCgi(getPath(req.getUri())))
         return ;
     bool isPost = utils::cmpWebStrs(req.getMethod(), (char*)"POST");
@@ -127,7 +128,8 @@ void handleCgi(http::Request const &req, http::Response &res) {
             throw http::HttpError("Pipes creation failed.", http::InternalServerError);
         std::stringstream ss;
         ss << queryString.length();
-        setenv("CONTENT_TYPE", "application/x-www-form-urlencoded", 1);
+        std::string val = req.getHeader("Content-Type");
+        setenv("CONTENT_TYPE", val.c_str(), 1);
         setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
     }
     pid_t pid = safeFork();
