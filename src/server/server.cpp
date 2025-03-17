@@ -188,11 +188,19 @@ int server::handleRequests() {
 int server::listenAndServe() {
   const std::vector<ServerConfig> configs = _config.getServerConfigs();
 
+
   for (size_t i = 0; i < configs.size(); i++) {
     int srvfd = socket(AF_INET, SOCK_STREAM, 0);
     if (srvfd == -1) {
       return -1;
     }
+    
+    // std::map<int, std::string>::const_iterator it = configs[i].error_pages.find(404);
+    // if (it != configs[i].error_pages.end()) {
+    //     std::cout << "Error 404 page: " << it->second << std::endl;
+    // } else {
+    //     std::cout << "Error 404 page not set for this server." << std::endl;
+    // }
 
     if (!this->params.production) {
       int opt = 1;

@@ -24,6 +24,18 @@ void GetCars(http::Request const &req, http::Response &res) {
   res.setBody("0123456789");
 }
 
+// getError musi brac path do error page z config file, otworzyc go, przeczytac i wsadzic status message depending
+// on map<error> key i body z pliku ktory jest podany w mapr<error> value
+
+
+// void GetError(http::Request const &req, http::Response &res) {
+//   (void)req;
+//   res.setHeader("Content-Length", "10");
+//   res.setStatusCode(http::OK);
+//   res.setStatusMessage("OK");
+//   res.setBody("0123456789");
+// }
+
 StaticHandler staticHandler("static");
 void handleStatic(http::Request const &req, http::Response &res) {
   staticHandler(req, res);
@@ -43,8 +55,13 @@ int main(int ac, char **av) {
   // srv.hook(handleStatic);
 
   srv.get("/", GetCars);
-  if (srv.listenAndServe() == -1)
-    return perror("Error on the server: "), 1;
+  // trzeba zrobic tak zeby przy errorach dalo sie wziac path do error page i przekazac do middleware
+  try {
+    if (srv.listenAndServe() == -1)
+      return perror("Error on the server: "), 1;
+  } catch (error) {
+    srv.get("/", GetError);
+  }
   server::destroyInstance();
   return 0;
 }
