@@ -1,6 +1,7 @@
 #include "HandleStatic.hpp"
 #include "../http/http.hpp"
 #include <fstream>
+#include <iostream>
 #include <sys/stat.h>
 
 std::string getMimeType(const std::string &filename) {
@@ -62,7 +63,17 @@ std::string getMimeType(const std::string &filename) {
 
 void StaticHandler::operator()(http::Request const &req,
                                http::Response &res) const {
-  std::string filePath = "." + std::string(req.getUri());
+  // Extract URI and ignore query string
+  std::string uri(req.getUri().pos);
+  if (req.getUri().nxtBuf)
+    uri += std::string(req.getUri().nxtBuf);
+
+  size_t queryPos = uri.find('?');
+  if (queryPos != std::string::npos) {
+    uri = uri.substr(0, queryPos); // Remove query string
+  }
+
+  std::string filePath = "." + uri;
   if (std::strncmp(filePath.c_str() + 2, dirPath.c_str(), dirPath.length()) !=
       0)
     return;

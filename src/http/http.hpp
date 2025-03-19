@@ -178,7 +178,7 @@ public:
   // clang-format off
   std::vector<std::pair<webStr, webStr> > _headers;
   // clang-format on
-  std::string getBodyPath() { return bodyPath; };
+  std::string getBodyPath() const;
   void setBodyPath(std::string path) { bodyPath = path; };
   webStr getHeader(char const *key) const;
   webStr getUri() const { return _uri; };
@@ -206,6 +206,7 @@ public:
     _headers.push_back(std::pair<webStr, webStr>(key, value));
   }
   void setBody(char *body_) { body = body_; }
+  char *getBody() const;
   Request();
   ~Request();
 };
@@ -261,6 +262,7 @@ public:
   void setHeader(std::string key, std::string value);
   void setBodyPath(std::string const bodyPath);
   void setBody(std::string const &body);
+  std::string getBody() const;
   bool isBodyReady();
   template <typename T> void setHookMap(std::string key, T *value) {
     hooksMap[key] = value;

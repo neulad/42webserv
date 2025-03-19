@@ -193,6 +193,15 @@ int server::listenAndServe() {
     if (srvfd == -1) {
       return -1;
     }
+
+    // std::map<int, std::string>::const_iterator it =
+    // configs[i].error_pages.find(404); if (it != configs[i].error_pages.end())
+    // {
+    //     std::cout << "Error 404 page: " << it->second << std::endl;
+    // } else {
+    //     std::cout << "Error 404 page not set for this server." << std::endl;
+    // }
+
     if (!this->params.production) {
       int opt = 1;
       if (setsockopt(srvfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
