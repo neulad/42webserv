@@ -62,17 +62,28 @@ void setResBody(std::string response, http::Response &res) {
   ssize_t pos = response.find_first_of("\n");
   std::string body = response.substr(pos + 1, response.size());
   res.setBody(body);
+  std::cout << "Length: " << body.length() << std::endl;
   int contentLength = body.length();
   std::stringstream ss;
   ss << contentLength;
   res.setHeader("Content-Length", ss.str());
 }
 
+bool isExecutable(const std::string& path) {
+    return access(path.c_str(), X_OK) == 0;
+}
+
+bool hasShebang(const std::string& path) {
+    std::ifstream file(path.c_str());
+    if (!file) return false;
+
+    std::string firstLine;
+    std::getline(file, firstLine);
+    return firstLine.substr(0, 2) == "#!";
+}
+
 bool isCgi(const std::string &path) {
-  size_t pos = path.find_last_of('.');
-  if (pos != std::string::npos) {
-    std::string ext = path.substr(pos);
-    return (ext == ".py" || ext == ".sh");
-  }
-  return false;
+  if (!isExecutable(path)) return false;
+  if (!hasShebang(path)) return false;
+  return true;
 }

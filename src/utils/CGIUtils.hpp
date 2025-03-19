@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <sys/types.h>
 #include <unistd.h>
+#include <iostream>
 
 int safeOpen(std::string const &path, int mode);
 pid_t safeFork();

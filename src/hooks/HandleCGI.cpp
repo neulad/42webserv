@@ -44,33 +44,21 @@ void handleChild(const char *path, const char *query, bool isPost, int *pipefd) 
     }
 
     try {
-        // Parse shebang and build arguments
         std::vector<std::string> shebang = parseShebang(path);
         std::vector<const char*> argv;
-
-        // Add interpreter and its arguments
         for (size_t i = 0; i < shebang.size(); ++i) {
             argv.push_back(shebang[i].c_str());
         }
-
-        // Add script path and NULL terminator
         argv.push_back(path);
         argv.push_back(NULL);
-
-        // Set up environment
         int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
         if (!isPost) {
             setenv("QUERY_STRING", query, 1);
         }
         dup2(output, STDOUT_FILENO);
         close(output);
-
-        // Execute with proper interpreter
         extern char **environ;
-        std::cout << "Interpreter is " << shebang[0].c_str() << std::endl;
         execve(shebang[0].c_str(), const_cast<char* const*>(&argv[0]), environ);
-
-        // Only reached on error
         throw http::HttpError("execve failed", http::BadRequest);
 
     } catch (const std::exception& e) {
