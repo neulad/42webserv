@@ -43,6 +43,8 @@ void handleStatic(http::Request const &req, http::Response &res) {
 
 int main(int ac, char **av) {
   const std::string configPath = ac > 1 ? av[1] : "src/config/default.conf";
+  if (access(configPath.c_str(), F_OK) == -1)
+    return perror("Can't open config file"), 1;
 
   srvparams params;
   // server srv(params, configPath);
