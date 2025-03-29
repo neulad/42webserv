@@ -4,17 +4,14 @@
 
 #include <cstdio>
 #include <cstring>
-#include <iostream>
+// #include <iostream>
 
-#include "hooks/HandleCGI.hpp"
+// #include "hooks/HandleCGI.hpp"
+#include "hooks/ConfigHandler.hpp"
 #include "hooks/HandleStatic.hpp"
-#include "hooks/ParseQuery.hpp"
+// #include "hooks/ParseQuery.hpp"
+#include "hooks/ConfigHandler.hpp"
 #include "http/http.hpp"
-
-void Log(http::Request const &req, http::Response &res) {
-  (void)res;
-  std::cout << "Request URI: " << req.getUri() << std::endl;
-}
 
 void GetCars(http::Request const &req, http::Response &res) {
   (void)req;
@@ -24,21 +21,14 @@ void GetCars(http::Request const &req, http::Response &res) {
   res.setBody("0123456789");
 }
 
-// getError musi brac path do error page z config file, otworzyc go, przeczytac
-// i wsadzic status message depending on map<error> key i body z pliku ktory
-// jest podany w mapr<error> value
-
-// void GetError(http::Request const &req, http::Response &res) {
-//   (void)req;
-//   res.setHeader("Content-Length", "10");
-//   res.setStatusCode(http::OK);
-//   res.setStatusMessage("OK");
-//   res.setBody("0123456789");
-// }
-
 StaticHandler staticHandler("static");
 void handleStatic(http::Request const &req, http::Response &res) {
   staticHandler(req, res);
+}
+
+ConfigHandler configHandler(NULL);
+void handleConfig(http::Request const &req, http::Response &res) {
+  configHandler(req, res);
 }
 
 int main(int ac, char **av) {
@@ -47,22 +37,18 @@ int main(int ac, char **av) {
     return perror("Can't open config file"), 1;
 
   srvparams params;
-  // server srv(params, configPath);
-  // server *srv = server::getInstance(params, configPath);
   server &srv = server::getInstance(params, configPath);
   server::serverInst = &srv;
-  srv.hook(Log);
-  srv.hook(handleCgi);
-  srv.hook(parseQueryString);
-  srv.hook(handleStatic);
+  configHandler.setConfig(&srv.getConfig());
 
+  // srv.hook(handleCgi);
+  // srv.hook(parseQueryString);
+  srv.hook(handleConfig);
+  srv.hook(handleStatic);
   srv.get("/", GetCars);
-  // przekazac do middleware try {
+
   if (srv.listenAndServe() == -1)
     return perror("Error on the server: "), 1;
-  // } catch (error) {
-  //   srv.get("/", GetError);
-  // }
   server::destroyInstance();
   return 0;
 }

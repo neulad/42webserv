@@ -382,9 +382,9 @@ void http::Connection::hndlIncStrm(int event_fd) {
 }
 // /Connection
 
-// Response
-http::Response::Response(srvparams const &params)
-    : protocol(params.protocol), statusCode(http::OK), statusMessage("OK") {}
+http::Response::Response(srvparams const &params, int port_)
+    : protocol(params.protocol), port(port_), statusCode(http::OK),
+      statusMessage("OK") {}
 http::Response::~Response() {
   for (std::map<std::string, void *>::iterator it = hooksMap.begin();
        it != hooksMap.end(); ++it) {
@@ -436,17 +436,9 @@ void http::Response::end(int event_fd, FilefdFactory &filefdfaq) {
       filefdfaq.addFdoffset(event_fd, filefd, fileSize, offset);
   }
 }
+std::string http::Response::getBody() const { return this->body; }
+int http::Response::getPort() const { return this->port; }
 
-std::string http::Response::getBody() const {
-    return this->body;
-}
+std::string http::Request::getBodyPath() const { return this->bodyPath; }
 
-// /Response
-
-std::string http::Request::getBodyPath() const {
-  return this->bodyPath;
-}
-
-char *http::Request::getBody() const {
-  return body;
-}
+char *http::Request::getBody() const { return body; }

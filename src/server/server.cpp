@@ -18,7 +18,6 @@
 #include <unistd.h>
 #include <vector>
 
-// server
 server *server::serverInst = NULL;
 int server::epollfd = -1;
 bool server::stop_proc;
@@ -132,7 +131,8 @@ int server::handleRequests() {
         confac.addConnection(new http::Connection(params), event_fd);
       conn = &confac.getConnection(event_fd);
     continue_next_request:
-      http::Response res(params);
+      http::Response res(params, utils::getPortNumber(event_fd));
+      std::cout << "Requested port is: " << res.getPort() << std::endl;
       try {
         conn->hndlIncStrm(event_fd);
         if (conn->status < http::ALL_DONE)
@@ -302,4 +302,6 @@ void server::routeRequest(http::Request const &req, http::Response &res) {
   }
   throw http::HttpError("The endpoint couldn't be found", http::NotFound);
 }
-// /server
+
+// Getters/Setters
+Config &server::getConfig() { return _config; }

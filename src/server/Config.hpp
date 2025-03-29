@@ -7,6 +7,7 @@
 #include <vector>
 
 struct RouteConfig {
+public:
   std::vector<std::string> methods;
   std::string root;
   std::string index;
@@ -14,6 +15,7 @@ struct RouteConfig {
 };
 
 struct ServerConfig {
+public:
   std::string host;
   int port;
   std::string server_name;
@@ -34,6 +36,6 @@ public:
   Config(const std::string &configPath);
   ~Config();
 
-  std::vector<ServerConfig> &getServerConfigs();
+  std::vector<ServerConfig> const &getServerConfigs() const;
   const std::string &getConfigPath() const;
 };

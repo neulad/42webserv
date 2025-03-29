@@ -1,6 +1,5 @@
 #include "utils.hpp"
-#include <cstddef>
-#include <cstring>
+#include <arpa/inet.h>
 
 size_t utils::webStrToSizeT(const http::webStr &wstr) {
   std::string combinedStr;
@@ -124,4 +123,85 @@ std::string utils::getHttpStatusMessage(int statusCode) {
 
   // If the status code is unknown, return a generic message
   return "Unknown Status Code";
+}
+
+int utils::getPortNumber(int fd) {
+  struct sockaddr_in addr;
+  socklen_t addr_len = sizeof(addr);
+
+  if (getsockname(fd, (struct sockaddr *)&addr, &addr_len) == -1) {
+    return -1; // Return -1 on failure
+  }
+
+  return ntohs(
+      addr.sin_port); // Convert from network byte order to host byte order
+}
+
+bool utils::startsWith(const std::string &prefix, const std::string &str) {
+  if (str.length() < prefix.length()) {
+    return false; // str is shorter than prefix, cannot be a match
+  }
+  return str.substr(0, prefix.length()) == prefix;
+}
+std::string utils::getMimeType(const std::string &filename) {
+  static std::map<std::string, std::string> mimeTypes;
+  if (mimeTypes.empty()) {
+    mimeTypes[".html"] = "text/html";
+    mimeTypes[".htm"] = "text/html";
+    mimeTypes[".txt"] = "text/plain";
+    mimeTypes[".css"] = "text/css";
+    mimeTypes[".js"] = "application/javascript";
+    mimeTypes[".json"] = "application/json";
+    mimeTypes[".xml"] = "application/xml";
+    mimeTypes[".csv"] = "text/csv";
+
+    mimeTypes[".jpg"] = "image/jpeg";
+    mimeTypes[".jpeg"] = "image/jpeg";
+    mimeTypes[".png"] = "image/png";
+    mimeTypes[".gif"] = "image/gif";
+    mimeTypes[".bmp"] = "image/bmp";
+    mimeTypes[".ico"] = "image/x-icon";
+    mimeTypes[".svg"] = "image/svg+xml";
+
+    mimeTypes[".mp3"] = "audio/mpeg";
+    mimeTypes[".wav"] = "audio/wav";
+    mimeTypes[".ogg"] = "audio/ogg";
+    mimeTypes[".mp4"] = "video/mp4";
+    mimeTypes[".webm"] = "video/webm";
+    mimeTypes[".avi"] = "video/x-msvideo";
+    mimeTypes[".mov"] = "video/quicktime";
+    mimeTypes[".flv"] = "video/x-flv";
+
+    mimeTypes[".pdf"] = "application/pdf";
+    mimeTypes[".zip"] = "application/zip";
+    mimeTypes[".tar"] = "application/x-tar";
+    mimeTypes[".gz"] = "application/gzip";
+    mimeTypes[".rar"] = "application/vnd.rar";
+    mimeTypes[".7z"] = "application/x-7z-compressed";
+    mimeTypes[".iso"] = "application/x-iso9660-image";
+    mimeTypes[".exe"] = "application/x-msdownload";
+    mimeTypes[".msi"] = "application/x-ms-installer";
+    mimeTypes[".deb"] = "application/vnd.debian.binary-package";
+    mimeTypes[".rpm"] = "application/x-rpm";
+
+    mimeTypes[".ttf"] = "font/ttf";
+    mimeTypes[".otf"] = "font/otf";
+    mimeTypes[".woff"] = "font/woff";
+    mimeTypes[".woff2"] = "font/woff2";
+  }
+
+  // Find the last dot in the filename
+  std::size_t dotPos = filename.rfind('.');
+  if (dotPos != std::string::npos) {
+    std::string ext = filename.substr(dotPos);
+    if (mimeTypes.find(ext) != mimeTypes.end())
+      return mimeTypes[ext];
+  }
+  return "application/octet-stream"; // Default for unknown files
+}
+
+std::string utils::intToString(int num) {
+  std::stringstream ss;
+  ss << num;       // Insert the integer into the stream
+  return ss.str(); // Convert stream to string
 }

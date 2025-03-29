@@ -240,6 +240,7 @@ public:
 class Response {
 private:
   std::string const protocol;
+  int port;
   int statusCode;
   std::string statusMessage;
   // clang-format off
@@ -257,12 +258,16 @@ private:
 public:
   bool done;
   void end(int fd, FilefdFactory &filefdfaq);
+
+  // Getters/Setters
   void setStatusCode(int const statusCode);
   void setStatusMessage(std::string const statusMessage);
   void setHeader(std::string key, std::string value);
   void setBodyPath(std::string const bodyPath);
   void setBody(std::string const &body);
   std::string getBody() const;
+  int getPort() const;
+
   bool isBodyReady();
   template <typename T> void setHookMap(std::string key, T *value) {
     hooksMap[key] = value;
@@ -271,7 +276,7 @@ public:
   template <typename T> T *getHookMap(std::string key) {
     return static_cast<T *>(hooksMap[key]);
   };
-  Response(srvparams const &params);
+  Response(srvparams const &params, int port);
   ~Response();
 };
 // /Response

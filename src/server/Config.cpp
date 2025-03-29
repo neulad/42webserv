@@ -89,6 +89,8 @@ Config::~Config() {
 }
 
 // Getter to access parsed server configurations
-std::vector<ServerConfig> &Config::getServerConfigs() { return _serverConfigs; }
+std::vector<ServerConfig> const &Config::getServerConfigs() const {
+  return _serverConfigs;
+}
 
 const std::string &Config::getConfigPath() const { return _configPath; }

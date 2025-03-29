@@ -53,6 +53,7 @@ private:
   void routeRequest(http::Request const &req, http::Response &res);
 
 public:
+  // Core
   static server *serverInst;
   static server &getInstance(srvparams const &params,
                              const std::string &configPath) {
@@ -69,4 +70,7 @@ public:
   int listenAndServe();
   void stop();
   srvparams const params;
+
+  // Getters/Setters
+  Config &getConfig();
 };
