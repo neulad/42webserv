@@ -12,6 +12,7 @@ public:
   std::string root;
   std::string index;
   std::string redirect;
+  std::string upload;
 };
 
 struct ServerConfig {

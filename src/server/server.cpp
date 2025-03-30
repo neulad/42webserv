@@ -132,7 +132,6 @@ int server::handleRequests() {
       conn = &confac.getConnection(event_fd);
     continue_next_request:
       http::Response res(params, utils::getPortNumber(event_fd));
-      std::cout << "Requested port is: " << res.getPort() << std::endl;
       try {
         conn->hndlIncStrm(event_fd);
         if (conn->status < http::ALL_DONE)

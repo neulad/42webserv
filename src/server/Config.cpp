@@ -60,6 +60,8 @@ void Config::_parseConfig(std::ifstream &file) {
       iss >> currentRoute.index;
     } else if (key == "redirect") {
       iss >> currentRoute.redirect;
+    } else if (key == "upload") {
+      iss >> currentRoute.upload;
     }
   }
 

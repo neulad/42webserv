@@ -5,15 +5,64 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>File Upload</title>
-	<link rel="stylesheet" href="styles.css">
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			text-align: center;
+			margin: 50px;
+		}
+
+		.container {
+			max-width: 400px;
+			margin: auto;
+			padding: 20px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+		}
+
+		input[type="file"] {
+			margin: 10px 0;
+		}
+	</style>
 </head>
 
 <body>
-	<h1>Upload a File</h1>
-	<form action="upload.php" method="post" enctype="multipart/form-data">
-		<input type="file" name="file" required>
-		<button type="submit">Upload</button>
-	</form>
+	<div class="container">
+		<h2>Upload a File</h2>
+		<input type="file" id="fileInput">
+		<button onclick="uploadFile()">Upload</button>
+		<p id="status"></p>
+	</div>
+
+	<script>
+		function uploadFile() {
+			var fileInput = document.getElementById('fileInput');
+			if (fileInput.files.length === 0) {
+				alert("Please select a file.");
+				return;
+			}
+
+			var file = fileInput.files[0];
+			var formData = new FormData();
+			formData.append("file", file);
+
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "/api", true);
+			xhr.setRequestHeader("X-File-Name", file.name);
+			xhr.setRequestHeader("Content-Type", "application/octet-stream");
+
+			xhr.onload = function () {
+				document.getElementById("status").innerText = xhr.status === 201 ? "Upload Successful!" : "Upload Failed!";
+			};
+
+			xhr.onerror = function () {
+				document.getElementById("status").innerText = "Error during upload.";
+			};
+
+			xhr.send(formData);
+		}
+	</script>
 </body>
 
 </html>

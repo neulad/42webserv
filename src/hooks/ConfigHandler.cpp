@@ -83,15 +83,14 @@ void ConfigHandler::operator()(http::Request const &req,
 
   for (size_t i = 0; i < configs.size(); ++i) {
     ServerConfig cnfg = configs[i];
+
+    if (res.getPort() != cnfg.port)
+      continue;
     try {
-      if (res.getPort() != cnfg.port)
-        continue;
       routeIter route_iter = cnfg.routes.begin();
       routeIter route_end = cnfg.routes.end();
       routeIter foundMatch = cnfg.routes.end();
 
-      // Look for routes. Then if found set foundMatch, otherwise foundMatch is
-      // end()
       for (; route_iter != route_end; ++route_iter) {
         std::vector<std::string> methodsAllowed = route_iter->second.methods;
         std::vector<std::string>::iterator methodExists =
@@ -115,8 +114,33 @@ void ConfigHandler::operator()(http::Request const &req,
             utils::getHttpStatusMessage(http::MovedPermanently));
         res.setHeader("Location", foundMatch->second.redirect);
         res.setHeader("Content-Length", "14");
-        res.setHeader("Content-Type", "text/html");
+        res.setHeader("Content-Type", "text/plain");
         res.setBody("Redirecting...");
+      } else if (matchRouteUrl == reqUrl &&
+                 !foundMatch->second.upload.empty() &&
+                 req.getMethod() == "POST" &&
+                 req.getHeader("X-File-Name").size() != 0) {
+        std::string fileName = req.getHeader("X-File-Name");
+        std::string const filePath = foundMatch->second.upload + "/" + fileName;
+
+        std::ofstream file(filePath.c_str(), std::ios::out | std::ios::trunc);
+        if (!file) {
+          throw http::HttpError("Couldn't upload the file",
+                                http::InternalServerError);
+        }
+        file << req.getBody();
+        if (!req.getBodyPath().empty()) {
+          std::ofstream bodyFile(filePath.c_str(),
+                                 std::ios::out | std::ios::trunc);
+          file << bodyFile;
+          bodyFile.close();
+        }
+        file.close();
+        res.setStatusCode(http::Created);
+        res.setStatusMessage(utils::getHttpStatusMessage(http::Created));
+        res.setHeader("Content-Length", "9");
+        res.setHeader("Content-Type", "text/plain");
+        res.setBody("Uploaded!");
       } else if (matchRouteUrl == reqUrl && !foundMatch->second.index.empty()) {
         checkAndSetFilePath(req, res,
                             matchRouteRoot + "/" + foundMatch->second.index);

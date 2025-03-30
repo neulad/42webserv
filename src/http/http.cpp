@@ -171,6 +171,10 @@ void http::Connection::hndlIncStrm(int event_fd) {
              params.clientBodyBufferSize > contentLength - bodyReadBytes
                  ? contentLength - bodyReadBytes
                  : params.clientBodyBufferSize);
+    std::cout << "The amount bytes read: " << bytesRead << std::endl;
+    std::cout << "Content Length: " << contentLength << std::endl;
+    std::cout << "The contentLength - bodyReadBytes: "
+              << contentLength - bodyReadBytes << std::endl;
     size_t bytesWrote = write(bodyFd, bodyBuffer, bytesRead);
     if (bytesRead != bytesWrote)
       throw http::HttpError("couldn't read the body", 500);
@@ -375,8 +379,9 @@ void http::Connection::hndlIncStrm(int event_fd) {
     std::string filePath = "tmp/" + event_fd_str;
     curReq.setBodyPath(filePath);
     std::cout << filePath << std::endl;
-    if (bodyFd == -1)
+    if (bodyFd == -1) {
       bodyFd = open(filePath.c_str(), O_CREAT | O_WRONLY, 0644);
+    }
     ftruncate(bodyFd, 0);
   }
 }
