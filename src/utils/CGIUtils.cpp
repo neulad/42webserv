@@ -1,4 +1,5 @@
 #include "./CGIUtils.hpp"
+#include <cstddef>
 
 int safeOpen(std::string const &path, int mode) {
   int output = open(path.c_str(), mode, 0644);
@@ -73,17 +74,17 @@ bool isExecutable(const std::string& path) {
     return access(path.c_str(), X_OK) == 0;
 }
 
-bool hasShebang(const std::string& path) {
-    std::ifstream file(path.c_str());
-    if (!file) return false;
-
-    std::string firstLine;
-    std::getline(file, firstLine);
-    return firstLine.substr(0, 2) == "#!";
+std::string getInterpreter(const std::string& path, const std::map<std::string, std::string>& extMap) {
+    const char *ext = &path[path.find_last_of('.')];
+    std::map<std::string, std::string>::const_iterator it = extMap.find((std::string)ext);
+    if (it != extMap.end()) {
+            return it->second;
+        }
+    return "";
 }
 
-bool isCgi(const std::string &path) {
+bool isCgi(const std::string &path, const std::map<std::string, std::string>& extMap) {
   if (!isExecutable(path)) return false;
-  if (!hasShebang(path)) return false;
+  if (getInterpreter(path, extMap).empty()) return false;
   return true;
 }

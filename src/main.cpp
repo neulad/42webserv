@@ -39,9 +39,10 @@ int main(int ac, char **av) {
   server &srv = server::getInstance(params, configPath);
   server::serverInst = &srv;
   configHandler.setConfig(&srv.getConfig());
+  CGI cgi(".py:.js:.sh", "/usr/bin/python3:/usr/bin/node:/usr/bin/bash");
 
   // srv.hook(parseQueryString);
-  srv.hook(handleCgi);
+  srv.hook(cgi.handleCgi);
   srv.hook(handleConfig);
   // srv.hook(handleStatic);
   // srv.get("/", GetCars);

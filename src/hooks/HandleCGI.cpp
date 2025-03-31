@@ -1,35 +1,37 @@
 #include "HandleCGI.hpp"
 #include "../utils/CGIUtils.hpp"
+#include <cstddef>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
 
-// Helper function to parse shebang line
-std::vector<std::string> parseShebang(const char *scriptPath) {
-  std::ifstream file(scriptPath);
-  if (!file) {
-    throw http::HttpError("Can't open script", http::BadRequest);
-  }
+CGI::CGI(std::string extension, std::string interpreter): _extension(extension), _interpreter(interpreter) {
+    std::cout << "CGI initialized successfully!" << std::endl;
+}
 
-  std::string line;
-  std::getline(file, line);
+std::vector<std::string> split(const std::string& str, char delimiter) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(str);
+    std::string token;
 
-  // Validate shebang format
-  if (line.substr(0, 2) != "#!") {
-    throw http::HttpError("Missing shebang", http::BadRequest);
-  }
+    while (std::getline(ss, token, delimiter)) {
+        tokens.push_back(token);
+    }
 
-  // Split shebang line into components
-  std::vector<std::string> tokens;
-  std::string token;
-  std::istringstream iss(line.substr(2));
+    return tokens;
+}
 
-  while (iss >> token) {
-    tokens.push_back(token);
-  }
+void CGI::initMap() {
+    std::vector<std::string> extensions = split(this->_extension, ':');
+    std::vector<std::string> interpreters = split(this->_interpreter, ':');
 
-  if (tokens.empty()) {
-    throw http::HttpError("Empty shebang", http::BadRequest);
-  }
+    if (extensions.size() != interpreters.size())
+        throw http::HttpError("Wrong CGI arguments", http::FailedDependency);
 
-  return tokens;
+    for (size_t i = 0; i < extensions.size(); ++i) {
+        this->_interpretersMap[extensions[i]] = interpreters[i];
+    }
 }
 
 void handleChild(const char *path, const char *query, bool isPost,
@@ -45,13 +47,6 @@ void handleChild(const char *path, const char *query, bool isPost,
   }
 
   try {
-    std::vector<std::string> shebang = parseShebang(path);
-    std::vector<const char *> argv;
-    for (size_t i = 0; i < shebang.size(); ++i) {
-      argv.push_back(shebang[i].c_str());
-    }
-    argv.push_back(path);
-    argv.push_back(NULL);
     int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
     if (!isPost) {
       setenv("QUERY_STRING", query, 1);
@@ -59,9 +54,9 @@ void handleChild(const char *path, const char *query, bool isPost,
     dup2(output, STDOUT_FILENO);
     close(output);
     extern char **environ;
-    execve(shebang[0].c_str(), const_cast<char *const *>(&argv[0]), environ);
+    char *argv[] = { (char *)"python3", (char *)path, NULL };
+    execve("/usr/bin/python3", argv, environ);
     throw http::HttpError("execve failed", http::BadRequest);
-
   } catch (const std::exception &e) {
     throw http::HttpError(e.what(), http::BadRequest);
   }
@@ -80,10 +75,11 @@ void handleParent(const char *query, bool isPost, int *pipefd, pid_t pid) {
   close(pipefd[0]);
 }
 
-void handleCgi(http::Request const &req, http::Response &res) {
+void CGI::handleCgi(http::Request const &req, http::Response &res) {
   unsetenv("CONTENT_LENGTH");
-  if (!isCgi(getScriptPath(req.getUri())))
+  if (!isCgi(getScriptPath(req.getUri()), _interpretersMap))
     return;
+  std::cout << getInterpreter(getScriptPath(req.getUri()), _interpretersMap);
   bool isPost = (req.getMethod() == "POST");
   int pipefd[2];
   std::string uri = req.getUri();

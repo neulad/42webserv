@@ -17,4 +17,5 @@ std::string getScriptPath(std::string uri);
 std::string readFileToString(const std::string &filename);
 void setResHeader(std::string response, http::Response &res);
 void setResBody(std::string response, http::Response &res);
-bool isCgi(const std::string &path);
+std::string getInterpreter(const std::string& path, const std::map<std::string, std::string>& extMap);
+bool isCgi(const std::string &path, const std::map<std::string, std::string>& extMap);
