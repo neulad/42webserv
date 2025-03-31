@@ -1,99 +1,69 @@
 #include "HandleCGI.hpp"
-#include <cstdlib>
-#include <fcntl.h>
-#include <ostream>
-#include <sstream>
-#include <stdexcept>
-#include <sys/types.h>
-#include <unistd.h>
+#include "../utils/CGIUtils.hpp"
 
-int safeOpen(std::string const &path, int mode) {
-  int output = open(path.c_str(), mode, 0644);
-  if (output < 0)
-    throw http::HttpError("Couldn't create a tmp file",
-                          http::InternalServerError);
-  else
-    return (output);
+// Helper function to parse shebang line
+std::vector<std::string> parseShebang(const char *scriptPath) {
+    std::ifstream file(scriptPath);
+    if (!file) {
+        throw http::HttpError("Can't open script", http::BadRequest);
+    }
+
+    std::string line;
+    std::getline(file, line);
+
+    // Validate shebang format
+    if (line.substr(0, 2) != "#!") {
+        throw http::HttpError("Missing shebang", http::BadRequest);
+    }
+
+    // Split shebang line into components
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream iss(line.substr(2));
+
+    while (iss >> token) {
+        tokens.push_back(token);
+    }
+
+    if (tokens.empty()) {
+        throw http::HttpError("Empty shebang", http::BadRequest);
+    }
+
+    return tokens;
 }
 
-pid_t safeFork() {
-  pid_t pid = fork();
-  if (pid < 0)
-    throw http::HttpError("Couldn't create a child process",
-                          http::InternalServerError);
-  else
-    return (pid);
-}
+void handleChild(const char *path, const char *query, bool isPost, int *pipefd) {
+    if (isPost) {
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+    }
 
-std::string getQueryString(std::string uri) {
-  ssize_t pos = uri.find("?");
-  return uri.substr(pos + 1, uri.size());
-}
+    if (access(path, F_OK) != 0) {
+        throw http::HttpError("Can't access CGI file", http::BadRequest);
+    }
 
-std::string getPath(std::string uri) {
-  ssize_t pos1 = uri.find("/");
-  ssize_t pos2 = uri.find("?");
-  std::string path;
-  if (pos2 != 0) {
-    path = uri.substr(pos1 + 1, pos2 - 1);
-  } else {
-    path = uri.substr(pos1 + 1, uri.size());
-  }
-  return path;
-}
+    try {
+        std::vector<std::string> shebang = parseShebang(path);
+        std::vector<const char*> argv;
+        for (size_t i = 0; i < shebang.size(); ++i) {
+            argv.push_back(shebang[i].c_str());
+        }
+        argv.push_back(path);
+        argv.push_back(NULL);
+        int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
+        if (!isPost) {
+            setenv("QUERY_STRING", query, 1);
+        }
+        dup2(output, STDOUT_FILENO);
+        close(output);
+        extern char **environ;
+        execve(shebang[0].c_str(), const_cast<char* const*>(&argv[0]), environ);
+        throw http::HttpError("execve failed", http::BadRequest);
 
-std::string readFileToString(const std::string &filename) {
-  std::ifstream file;
-  file.open(filename.c_str());
-  if (!file) {
-    throw std::runtime_error("Failed to open file: " + filename);
-  }
-  std::ostringstream buffer;
-  buffer << file.rdbuf();
-  return buffer.str();
-}
-
-void setHeader(std::string response, http::Response &res) {
-  std::string key;
-  std::string value;
-  ssize_t pos = response.find(":");
-  ssize_t pos2 = response.find_first_of("\n");
-  if (pos <= 0)
-    throw std::runtime_error("Mariusz smierdzi ze hej");
-  key = response.substr(0, pos);
-  value = response.substr(pos + 2, pos2 - (pos + 2));
-  res.setHeader(key, value);
-}
-
-void setBody(std::string response, http::Response &res) {
-  ssize_t pos = response.find_first_of("\n");
-  std::string body = response.substr(pos + 1, response.size());
-  res.setBody(body);
-  int contentLength = body.length();
-  std::stringstream ss;
-  ss << contentLength;
-  res.setHeader("Content-Length", ss.str());
-}
-
-void handleChild(const char *path, const char *query, bool isPost,
-                 int *pipefd) {
-  if (isPost) {
-    close(pipefd[1]);
-    dup2(pipefd[0], STDIN_FILENO);
-    close(pipefd[0]);
-  }
-  if (access(path, F_OK) == 0) {
-    int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
-    if (!isPost)
-      setenv("QUERY_STRING", query, 1);
-    const char *args[] = {"/usr/bin/python3", path, NULL};
-    extern char **environ;
-    dup2(output, STDOUT_FILENO);
-    close(output);
-    execve(args[0], (char *const *)args, environ);
-    throw http::HttpError("Can't exec the CGI file.", http::BadRequest);
-  }
-  throw http::HttpError("Can't access the CGI file.", http::BadRequest);
+    } catch (const std::exception& e) {
+        throw http::HttpError(e.what(), http::BadRequest);
+    }
 }
 
 void handleParent(const char *query, bool isPost, int *pipefd, pid_t pid) {
@@ -109,18 +79,9 @@ void handleParent(const char *query, bool isPost, int *pipefd, pid_t pid) {
   close(pipefd[0]);
 }
 
-bool isCgi(const std::string &path) {
-  size_t pos = path.find_last_of('.');
-  if (pos != std::string::npos) {
-    std::string ext = path.substr(pos);
-    return (ext == ".py");
-  }
-  return false;
-}
-
 void handleCgi(http::Request const &req, http::Response &res) {
   unsetenv("CONTENT_LENGTH");
-  if (!isCgi(getPath(req.getUri())))
+  if (!isCgi(getScriptPath(req.getUri())))
     return;
   bool isPost = (req.getMethod() == "POST");
   int pipefd[2];
@@ -140,10 +101,10 @@ void handleCgi(http::Request const &req, http::Response &res) {
   if (pid != 0) {
     handleParent(queryString.c_str(), isPost, pipefd, pid);
   } else {
-    handleChild(getPath(uri).c_str(), queryString.c_str(), isPost, pipefd);
+    handleChild(getScriptPath(uri).c_str(), queryString.c_str(), isPost, pipefd);
   }
   std::string result = readFileToString("output.txt");
-  setBody(result, res);
-  setHeader(result, res);
+  setResBody(result, res);
+  setResHeader(result, res);
   std::remove("output.txt");
 }
