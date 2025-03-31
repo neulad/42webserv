@@ -2,6 +2,7 @@
 #include "../utils/utils.hpp"
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <dirent.h>
 #include <fstream>
 #include <iostream>
@@ -35,7 +36,8 @@ void checkAndSetFilePath(http::Request const &req, http::Response &res,
   file.close();
 }
 
-std::string listDirectoryAsLinks(const std::string &directoryPath) {
+std::string listDirectoryAsLinks(const std::string &directoryPath,
+                                 std::string currentUrl) {
   DIR *dir = opendir(directoryPath.c_str());
   if (!dir) {
     throw http::HttpError("The directory was not found", http::NotFound);
@@ -53,9 +55,8 @@ std::string listDirectoryAsLinks(const std::string &directoryPath) {
       continue;
     }
 
-    std::cout << filename << std::endl;
-    htmlList << "<li><a href=\"" << filename << "\">" << filename << "</a></li>"
-             << std::endl;
+    htmlList << "<li><a href=\"" << currentUrl + "/" + filename << "\">"
+             << filename << "</a></li>" << std::endl;
   }
   htmlList << "</ul>\n";
 
@@ -94,14 +95,16 @@ void ConfigHandler::operator()(http::Request const &req,
       routeIter route_end = cnfg.routes.end();
       routeIter foundMatch = cnfg.routes.end();
 
+      std::cout << "Port number: " << cnfg.port << std::endl;
       for (; route_iter != route_end; ++route_iter) {
         std::vector<std::string> methodsAllowed = route_iter->second.methods;
         std::vector<std::string>::iterator methodExists =
             std::find(methodsAllowed.begin(), methodsAllowed.end(),
                       std::string(req.getMethod()));
 
+        std::cout << "Route url: " << route_iter->first << std::endl;
         if (methodExists == methodsAllowed.end())
-          return;
+          continue;
         if (utils::startsWith(route_iter->first, req.getUri()))
           foundMatch = route_iter;
       }
@@ -148,7 +151,7 @@ void ConfigHandler::operator()(http::Request const &req,
         checkAndSetFilePath(req, res,
                             matchRouteRoot + "/" + foundMatch->second.index);
       } else if (matchRouteUrl == reqUrl) {
-        std::string dirListHtml = listDirectoryAsLinks(matchRouteRoot);
+        std::string dirListHtml = listDirectoryAsLinks(matchRouteRoot, reqUrl);
 
         res.setStatusCode(http::OK);
         res.setStatusMessage(utils::getHttpStatusMessage(http::OK));
@@ -159,6 +162,16 @@ void ConfigHandler::operator()(http::Request const &req,
         std::string redirectUrl =
             foundMatch->second.root + "/" +
             std::string(req.getUri()).substr(foundMatch->first.length());
+        if (req.getMethod() == "DELETE") {
+          remove(redirectUrl.c_str());
+          res.setStatusCode(http::NoContent);
+          res.setStatusMessage(utils::getHttpStatusMessage(http::NoContent));
+          res.setHeader("Content-Length", "7");
+          res.setHeader("Content-Type", "text/plain");
+          res.setBody("Deleted");
+
+          return;
+        }
         checkAndSetFilePath(req, res, redirectUrl);
       }
     } catch (http::HttpError const &err) {

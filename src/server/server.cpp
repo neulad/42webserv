@@ -109,7 +109,6 @@ int server::handleRequests() {
           usleep(1);
         filefdfac.sendFdoffset(event_fd);
         if (!filefdfac.ifExists(event_fd)) {
-          std::cout << "response sending is over" << std::endl;
           removeEPOLLOUT(event_fd);
         }
         continue;
@@ -122,7 +121,6 @@ int server::handleRequests() {
           close(event_fd);
           removeEpollEvent(event_fd);
           confac.delConnection(event_fd);
-          std::cerr << "test" << std::endl;
           continue;
         }
       }

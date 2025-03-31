@@ -165,7 +165,6 @@ http::Connection::~Connection() {
 }
 
 void http::Connection::hndlIncStrm(int event_fd) {
-  std::cout << "We continue reading the body" << std::endl;
   if (status == BODY_STARTED) {
     size_t bytesRead =
         read(event_fd, bodyBuffer,
