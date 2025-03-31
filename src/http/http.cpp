@@ -165,20 +165,19 @@ http::Connection::~Connection() {
 }
 
 void http::Connection::hndlIncStrm(int event_fd) {
+  std::cout << "We continue reading the body" << std::endl;
   if (status == BODY_STARTED) {
     size_t bytesRead =
         read(event_fd, bodyBuffer,
              params.clientBodyBufferSize > contentLength - bodyReadBytes
                  ? contentLength - bodyReadBytes
                  : params.clientBodyBufferSize);
-    std::cout << "The amount bytes read: " << bytesRead << std::endl;
-    std::cout << "Content Length: " << contentLength << std::endl;
-    std::cout << "The contentLength - bodyReadBytes: "
-              << contentLength - bodyReadBytes << std::endl;
     size_t bytesWrote = write(bodyFd, bodyBuffer, bytesRead);
     if (bytesRead != bytesWrote)
       throw http::HttpError("couldn't read the body", 500);
     bodyReadBytes += bytesWrote;
+    std::cout << "bodyReadBytes: " << bodyReadBytes << std::endl;
+    std::cout << "Content Length: " << contentLength << std::endl << std::endl;
     if (bodyReadBytes == contentLength) {
       status = ALL_DONE;
       close(bodyFd);

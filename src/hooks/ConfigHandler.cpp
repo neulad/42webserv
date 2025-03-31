@@ -76,6 +76,8 @@ void ConfigHandler::operator()(http::Request const &req,
                                http::Response &res) const {
   if (this->config == NULL)
     return;
+  if (res.isBodyReady())
+    return;
 
   std::vector<ServerConfig> configs = this->config->getServerConfigs();
   std::string reqUrl = std::string(req.getUri());
