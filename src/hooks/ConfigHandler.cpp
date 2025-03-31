@@ -53,6 +53,7 @@ std::string listDirectoryAsLinks(const std::string &directoryPath) {
       continue;
     }
 
+    std::cout << filename << std::endl;
     htmlList << "<li><a href=\"" << filename << "\">" << filename << "</a></li>"
              << std::endl;
   }
