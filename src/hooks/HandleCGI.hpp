@@ -2,6 +2,8 @@
 
 #include "../http/http.hpp"
 #include "../utils/utils.hpp"
+#include "../utils/CGIUtils.hpp"
+#include "../utils/CGIProcessHandling.hpp"
 
 #include <algorithm>
 #include <fcntl.h>
@@ -15,6 +17,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <cstddef>
+#include <vector>
+
 
 class CGI {
 	private:
