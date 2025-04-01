@@ -1,112 +1,92 @@
 #include "HandleCGI.hpp"
-#include "../utils/CGIUtils.hpp"
 
-// Helper function to parse shebang line
-std::vector<std::string> parseShebang(const char *scriptPath) {
-  std::ifstream file(scriptPath);
-  if (!file) {
-    throw http::HttpError("Can't open script", http::BadRequest);
-  }
+/// Static map to store the interpreters for different extensions
+/// This map is initialized in the constructor of the CGI class
+std::map<std::string, std::string> CGI::_interpretersMap;
 
-  std::string line;
-  std::getline(file, line);
-
-  // Validate shebang format
-  if (line.substr(0, 2) != "#!") {
-    throw http::HttpError("Missing shebang", http::BadRequest);
-  }
-
-  // Split shebang line into components
-  std::vector<std::string> tokens;
-  std::string token;
-  std::istringstream iss(line.substr(2));
-
-  while (iss >> token) {
-    tokens.push_back(token);
-  }
-
-  if (tokens.empty()) {
-    throw http::HttpError("Empty shebang", http::BadRequest);
-  }
-
-  return tokens;
+CGI::CGI(const std::string &extension, const std::string &interpreter) : _extension(extension), _interpreter(interpreter)
+{
+	initMap();
 }
 
-void handleChild(const char *path, const char *query, bool isPost,
-                 int *pipefd) {
-  if (isPost) {
-    close(pipefd[1]);
-    dup2(pipefd[0], STDIN_FILENO);
-    close(pipefd[0]);
-  }
+/**
+Initializes the _interpretersMap with the given extensions and interpreters.
 
-  if (access(path, F_OK) != 0) {
-    throw http::HttpError("Can't access CGI file", http::BadRequest);
-  }
+The extensions and interpreters are split by ':' and stored in the map.
+If the number of extensions and interpreters do not match, an exception is thrown.
+If the extensions or interpreters are empty, an exception is thrown.
+*/
+void CGI::initMap()
+{
+	std::vector<std::string> extensions = split(this->_extension, ':');
+	std::vector<std::string> interpreters = split(this->_interpreter, ':');
 
-  try {
-    std::vector<std::string> shebang = parseShebang(path);
-    std::vector<const char *> argv;
-    for (size_t i = 0; i < shebang.size(); ++i) {
-      argv.push_back(shebang[i].c_str());
-    }
-    argv.push_back(path);
-    argv.push_back(NULL);
-    int output = safeOpen("output.txt", O_CREAT | O_TRUNC | O_RDWR);
-    if (!isPost) {
-      setenv("QUERY_STRING", query, 1);
-    }
-    dup2(output, STDOUT_FILENO);
-    close(output);
-    extern char **environ;
-    execve(shebang[0].c_str(), const_cast<char *const *>(&argv[0]), environ);
-    throw http::HttpError("execve failed", http::BadRequest);
+	if (extensions.empty() || interpreters.empty())
+		throw http::HttpError("Wrong CGI arguments", http::FailedDependency);
 
-  } catch (const std::exception &e) {
-    throw http::HttpError(e.what(), http::BadRequest);
-  }
+	if (extensions.size() != interpreters.size())
+		throw http::HttpError("Wrong CGI arguments", http::FailedDependency);
+
+	for (unsigned long i = 0; i < extensions.size(); ++i)
+		_interpretersMap[extensions[i]] = interpreters[i];
 }
 
-void handleParent(const char *query, bool isPost, int *pipefd, pid_t pid) {
-  if (isPost) {
-    ssize_t written = write(pipefd[1], query, strlen(query));
-    if (written == -1) {
-      std::cerr << "Error writing to pipe: " << strerror(errno) << std::endl;
-      exit(1);
-    }
-    close(pipefd[1]);
-  }
-  waitpid(pid, NULL, 0);
-  close(pipefd[0]);
-}
+/**
+Handles the CGI request.
 
-void handleCgi(http::Request const &req, http::Response &res) {
-  unsetenv("CONTENT_LENGTH");
-  if (!isCgi(getScriptPath(req.getUri())))
-    return;
-  bool isPost = (req.getMethod() == "POST");
-  int pipefd[2];
-  std::string uri = req.getUri();
-  std::string queryString = isPost ? req.getBody() : getQueryString(uri);
-  if (isPost) {
-    if (pipe(pipefd) == -1)
-      throw http::HttpError("Pipes creation failed.",
-                            http::InternalServerError);
-    std::stringstream ss;
-    ss << queryString.length();
-    std::string val = req.getHeader("Content-Type");
-    setenv("CONTENT_TYPE", val.c_str(), 1);
-    setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
-  }
-  pid_t pid = safeFork();
-  if (pid != 0) {
-    handleParent(queryString.c_str(), isPost, pipefd, pid);
-  } else {
-    handleChild(getScriptPath(uri).c_str(), queryString.c_str(), isPost,
-                pipefd);
-  }
-  std::string result = readFileToString("output.txt");
-  setResBody(result, res);
-  setResHeader(result, res);
-  std::remove("output.txt");
+This function is responsible for handling the CGI request.
+It sets the necessary environment variables, forks a child process to execute the CGI script,
+and reads the output from the script to set the response body and headers.
+It also handles POST requests by setting the CONTENT_TYPE and CONTENT_LENGTH environment variables.
+
+@param req The HTTP request object.
+@param res The HTTP response object.
+*/
+void CGI::handleCgi(http::Request const &req, http::Response &res)
+{
+	// Unsetting Content-Length to avoid issues with POST requests
+	unsetenv("CONTENT_LENGTH");
+
+	std::string scriptPath = getScriptPath(req.getUri());
+
+	if (!isCgi(scriptPath, _interpretersMap))
+		return;
+
+	// Initialize variables
+	bool isPost = (req.getMethod() == "POST");
+	int pipefd[2];
+	std::string uri = req.getUri();
+	std::string queryString = isPost ? req.getBody() : getQueryString(uri);
+
+	// If the request is a POST request, we need to set the environment variables
+	if (isPost)
+	{
+		if (pipe(pipefd) == -1)
+			throw http::HttpError("Pipes creation failed.",
+								  http::InternalServerError);
+		std::stringstream ss;
+		ss << queryString.length();
+		std::string val = req.getHeader("Content-Type");
+		setenv("CONTENT_TYPE", val.c_str(), 1);
+		setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
+	}
+
+	// Create a pipe to communicate with the child process
+	pid_t pid = safeFork();
+	if (pid != 0)
+	{
+		handleParent(queryString.c_str(), isPost, pipefd, pid);
+	}
+	else
+	{
+		std::string interpreter = getInterpreter(scriptPath, _interpretersMap);
+		char *castedInterpreter = const_cast<char *>(interpreter.c_str());
+		handleChild(scriptPath.c_str(), queryString.c_str(), isPost, pipefd, castedInterpreter);
+	}
+
+	// Read the output to temp file and set the response
+	std::string result = readFileToString(".cgi-output");
+	setResBody(result, res);
+	setResHeader(result, res);
+	std::remove(".cgi-output");
 }
