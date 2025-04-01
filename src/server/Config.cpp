@@ -14,6 +14,7 @@ void Config::_parseConfig(std::ifstream &file) {
   RouteConfig currentRoute;
   std::string currentRoutePath;
   bool insideServer = false;
+  
   while (std::getline(file, line)) {
     std::istringstream iss(line);
     std::string key;
@@ -24,6 +25,12 @@ void Config::_parseConfig(std::ifstream &file) {
 
     if (key == "server") {
       if (insideServer) {
+        // Save the last route before saving the server
+        if (!currentRoutePath.empty()) {
+          currentServer.routes[currentRoutePath] = currentRoute;
+          currentRoutePath.clear();
+          currentRoute = RouteConfig();
+        }
         _serverConfigs.push_back(currentServer); // Save previous server
         currentServer = ServerConfig();          // Reset for new server
       }
@@ -44,11 +51,12 @@ void Config::_parseConfig(std::ifstream &file) {
       iss >> size;
       currentServer.client_max_body_size = std::strtoul(size.c_str(), NULL, 10);
     } else if (key == "route") {
+      // Save the previous route before starting a new one
       if (!currentRoutePath.empty()) {
         currentServer.routes[currentRoutePath] = currentRoute;
-        currentRoute = RouteConfig(); // Reset route configuration
       }
       iss >> currentRoutePath;
+      currentRoute = RouteConfig(); // Reset route configuration
     } else if (key == "methods") {
       std::string method;
       while (iss >> method) {
@@ -75,6 +83,7 @@ void Config::_parseConfig(std::ifstream &file) {
     _serverConfigs.push_back(currentServer);
   }
 }
+
 
 // Config constructor
 Config::Config(const std::string &configPath) : _configPath(configPath) {

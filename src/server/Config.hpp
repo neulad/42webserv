@@ -23,6 +23,8 @@ public:
   size_t client_max_body_size;
   std::map<std::string, RouteConfig> routes;
   std::map<int, std::string> error_pages;
+  std::string cgi_paths;
+  std::string cgi_extensions;
 
   ServerConfig();
 };

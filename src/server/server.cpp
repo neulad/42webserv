@@ -198,6 +198,19 @@ int server::listenAndServe() {
     // } else {
     //     std::cout << "Error 404 page not set for this server." << std::endl;
     // }
+    for (std::map<std::string, RouteConfig>::const_iterator it =
+      configs[i].routes.begin();
+      it != configs[i].routes.end(); ++it) {
+      std::cout << "\n Route: " << it->first << std::endl;
+      std::cout << "Methods: ";
+      for (size_t j = 0; j < it->second.methods.size(); ++j) {
+        std::cout << it->second.methods[j] << " ";
+      } 
+      std::cout << std::endl;
+      std::cout << "Root: " << it->second.root << std::endl;
+      std::cout << "Index: " << it->second.index << std::endl;
+      std::cout << "Redirect: " << it->second.redirect << std::endl;
+    }
 
     if (!this->params.production) {
       int opt = 1;
