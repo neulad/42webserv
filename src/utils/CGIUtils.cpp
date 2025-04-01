@@ -88,3 +88,15 @@ bool isCgi(const std::string &path, const std::map<std::string, std::string>& ex
   if (getInterpreter(path, extMap).empty()) return false;
   return true;
 }
+
+std::vector<std::string> split(const std::string& str, char delimiter) {
+  std::vector<std::string> tokens;
+  std::stringstream ss(str);
+  std::string token;
+
+  while (std::getline(ss, token, delimiter)) {
+      tokens.push_back(token);
+  }
+
+  return tokens;
+}

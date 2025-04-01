@@ -20,9 +20,9 @@ class CGI {
 	private:
 		std::string _extension;
 		std::string _interpreter;
-		static std::map<std::string, std::string> _interpretersMap;
 		void initMap();
 	public:
-		CGI(std::string extension, std::string interpreter);
+		static std::map<std::string, std::string> _interpretersMap;
+		CGI(const std::string &extension, const std::string &interpreter);
 		static void handleCgi(http::Request const &req, http::Response &res);
 };
