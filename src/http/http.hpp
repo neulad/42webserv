@@ -117,6 +117,7 @@ private:
   char *buffer;
   size_t size;
   size_t cursor;
+  size_t length;
 
 public:
   bool isFull();
@@ -172,6 +173,7 @@ private:
   webStr _method;
   webStr _httpvers;
   char *body;
+  size_t bodyLenth;
   std::string bodyPath;
 
 public:
@@ -179,6 +181,7 @@ public:
   std::vector<std::pair<webStr, webStr> > _headers;
   // clang-format on
   std::string getBodyPath() const;
+  size_t getBodyLength() const { return bodyLenth; }
   void setBodyPath(std::string path) { bodyPath = path; };
   webStr getHeader(char const *key) const;
   webStr getUri() const { return _uri; };
@@ -190,6 +193,7 @@ public:
     if (nxtBuf_)
       _method.nxtBuf = nxtBuf_;
   }
+  void setBodyLength(size_t length) { this->bodyLenth = length; }
   void setUri(char *pos_, char *nxtBuf_) {
     if (pos_)
       _uri.pos = pos_;

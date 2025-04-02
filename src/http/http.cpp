@@ -39,7 +39,7 @@ void http::webbuf::readBuf(int fd) {
 
 // webStr
 long http::webStr::size() const {
-  if (!_posSize) {
+  if (pos && !_posSize) {
     while (pos[_size])
       ++_size;
     _posSize = _size;
@@ -128,7 +128,7 @@ std::ostream &http::operator<<(std::ostream &os, const webStr &str) {
 // /webStr
 
 // Request
-http::Request::Request() {}
+http::Request::Request() : bodyLenth(0) {}
 http::Request::~Request() {}
 
 http::webStr http::Request::getHeader(char const *key) const {
@@ -175,8 +175,6 @@ void http::Connection::hndlIncStrm(int event_fd) {
     if (bytesRead != bytesWrote)
       throw http::HttpError("couldn't read the body", 500);
     bodyReadBytes += bytesWrote;
-    std::cout << "bodyReadBytes: " << bodyReadBytes << std::endl;
-    std::cout << "Content Length: " << contentLength << std::endl << std::endl;
     if (bodyReadBytes == contentLength) {
       status = ALL_DONE;
       close(bodyFd);
@@ -359,9 +357,11 @@ void http::Connection::hndlIncStrm(int event_fd) {
       throw http::HttpError("couldn't read content-length", 400);
     ;
     if (buffer[cursor]) {
-      curReq.setBody(buffer + cursor);
-      bodyReadBytes = strlen(buffer + cursor);
-      if (bodyReadBytes >= contentLength) {
+      this->curReq.setBody(buffer + cursor);
+      this->bodyReadBytes = this->buffers[curBuf]->getCursor() - this->cursor;
+      this->curReq.setBodyLength(bodyReadBytes);
+
+      if (this->bodyReadBytes >= contentLength) {
         status = ALL_DONE;
         cursor += contentLength;
         if (buffer[cursor])
@@ -376,7 +376,6 @@ void http::Connection::hndlIncStrm(int event_fd) {
     std::string event_fd_str = oss.str();
     std::string filePath = "tmp/" + event_fd_str;
     curReq.setBodyPath(filePath);
-    std::cout << filePath << std::endl;
     if (bodyFd == -1) {
       bodyFd = open(filePath.c_str(), O_CREAT | O_WRONLY, 0644);
     }

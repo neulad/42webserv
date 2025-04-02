@@ -3,16 +3,98 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <dirent.h>
 #include <fstream>
 #include <iostream>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 // Type definitions
 typedef std::map<std::string, RouteConfig>::iterator routeIter;
 
 // Helper functions
+bool removeGeckoWrapper(const std::string &filepath) {
+  // Step 1: Open the file for reading in binary mode
+  std::ifstream inFile(filepath.c_str(), std::ios::in | std::ios::binary);
+  if (!inFile) {
+    std::cerr << "Error: Could not open file for reading: " << filepath
+              << std::endl;
+    return false;
+  }
+
+  // Step 2: Read the entire file into a string buffer
+  inFile.seekg(0, std::ios::end);
+  std::streampos fileSize = inFile.tellg();
+  inFile.seekg(0, std::ios::beg);
+
+  std::string buffer(fileSize, '\0');
+  inFile.read(&buffer[0], fileSize);
+  inFile.close();
+
+  // Step 3: Extract the boundary string from the first line
+  std::string::size_type firstNewline = buffer.find("\r\n");
+  if (firstNewline == std::string::npos) {
+    std::cerr << "Error: Could not find boundary in " << filepath << std::endl;
+    return false;
+  }
+  std::string boundary = buffer.substr(
+      0,
+      firstNewline); // e.g.,
+                     // ------geckoformboundary3d21d1afa7a4260e20e30ae247812df9
+  std::string boundaryStart = boundary; // Start boundary
+  std::string boundaryEnd =
+      boundary +
+      "--"; // Closing boundary, e.g.,
+            // ------geckoformboundary3d21d1afa7a4260e20e30ae247812df9--
+
+  // Step 4: Find the start and end of the actual content
+  std::string contentTypeMarker = "Content-Type:";
+  std::string doubleNewline = "\r\n\r\n"; // Separator after headers
+
+  // Find the start of the content (after headers)
+  std::string::size_type contentTypePos = buffer.find(contentTypeMarker);
+  if (contentTypePos == std::string::npos) {
+    std::cerr << "Error: Could not find Content-Type in " << filepath
+              << std::endl;
+    return false;
+  }
+  std::string::size_type headerEnd = buffer.find(doubleNewline, contentTypePos);
+  if (headerEnd == std::string::npos) {
+    std::cerr << "Error: Could not find content start in " << filepath
+              << std::endl;
+    return false;
+  }
+  headerEnd += doubleNewline.length(); // Move past the "\r\n\r\n"
+
+  // Find the end of the content (before the closing boundary)
+  std::string::size_type contentEnd = buffer.find(boundaryEnd, headerEnd);
+  if (contentEnd == std::string::npos) {
+    std::cerr << "Error: Could not find content end in " << filepath
+              << std::endl;
+    return false;
+  }
+
+  // Extract the content between headerEnd and contentEnd
+  std::string content = buffer.substr(headerEnd, contentEnd - headerEnd);
+
+  // Step 5: Open the file for writing in binary mode (overwrite)
+  std::ofstream outFile(filepath.c_str(),
+                        std::ios::out | std::ios::binary | std::ios::trunc);
+  if (!outFile) {
+    std::cerr << "Error: Could not open file for writing: " << filepath
+              << std::endl;
+    return false;
+  }
+
+  // Step 6: Write the cleaned content back to the file
+  outFile.write(content.c_str(), content.size());
+  outFile.close();
+
+  return true;
+}
+
 void checkAndSetFilePath(http::Request const &req, http::Response &res,
                          std::string const &redirectUrl) {
   (void)req;
@@ -66,6 +148,8 @@ std::string listDirectoryAsLinks(const std::string &directoryPath,
 
 void rtrimCharacters(std::string &str, const std::string &charsToRemove) {
   size_t endPos = str.find_last_not_of(charsToRemove);
+  if (str.size() == 1)
+    return;
   if (endPos != std::string::npos) {
     str.erase(endPos + 1); // Trim the right side
   } else {
@@ -95,14 +179,12 @@ void ConfigHandler::operator()(http::Request const &req,
       routeIter route_end = cnfg.routes.end();
       routeIter foundMatch = cnfg.routes.end();
 
-      std::cout << "Port number: " << cnfg.port << std::endl;
       for (; route_iter != route_end; ++route_iter) {
         std::vector<std::string> methodsAllowed = route_iter->second.methods;
         std::vector<std::string>::iterator methodExists =
             std::find(methodsAllowed.begin(), methodsAllowed.end(),
                       std::string(req.getMethod()));
 
-        std::cout << "Route url: " << route_iter->first << std::endl;
         if (methodExists == methodsAllowed.end())
           continue;
         if (utils::startsWith(route_iter->first, req.getUri()))
@@ -128,20 +210,25 @@ void ConfigHandler::operator()(http::Request const &req,
                  req.getHeader("X-File-Name").size() != 0) {
         std::string fileName = req.getHeader("X-File-Name");
         std::string const filePath = foundMatch->second.upload + "/" + fileName;
-
-        std::ofstream file(filePath.c_str(), std::ios::out | std::ios::trunc);
+        std::ofstream file(filePath.c_str(),
+                           std::ios::out | std::ios::trunc | std::ios::binary);
         if (!file) {
+          std::cerr << strerror(errno) << std::endl;
           throw http::HttpError("Couldn't upload the file",
                                 http::InternalServerError);
         }
-        file << req.getBody();
+        file.write(req.getBody(), req.getBodyLength());
         if (!req.getBodyPath().empty()) {
-          std::ofstream bodyFile(filePath.c_str(),
-                                 std::ios::out | std::ios::trunc);
-          file << bodyFile;
+          std::ifstream bodyFile(req.getBodyPath().c_str(),
+                                 std::ios::in | std::ios::binary);
+          file << bodyFile.rdbuf();
           bodyFile.close();
         }
         file.close();
+        if (!removeGeckoWrapper(filePath)) {
+          throw http::HttpError("Couldn't remove the wrapper",
+                                http::InternalServerError);
+        }
         res.setStatusCode(http::Created);
         res.setStatusMessage(utils::getHttpStatusMessage(http::Created));
         res.setHeader("Content-Length", "9");

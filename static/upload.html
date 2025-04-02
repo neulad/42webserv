@@ -48,9 +48,9 @@
 			formData.append("file", file);
 
 			var xhr = new XMLHttpRequest();
-			xhr.open("POST", "/api", true);
+			let path = window.location.pathname.split('/').slice(0, -1).join('/') || '/';
+			xhr.open("POST", path, true);
 			xhr.setRequestHeader("X-File-Name", file.name);
-			xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
 			xhr.onload = function () {
 				document.getElementById("status").innerText = xhr.status === 201 ? "Upload Successful!" : "Upload Failed!";
