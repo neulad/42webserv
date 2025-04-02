@@ -56,7 +56,8 @@ void handleChild(const char *path, const char *query, bool isPost,
 	// Handle execve
 	extern char **environ;
 	char *argv[] = {interpreter, (char *)path, NULL};
+	alarm(5);
 	execve(interpreter, argv, environ);
 
-	throw http::HttpError("Execve failed", http::BadRequest);
+	throw http::HttpError("Execve failed", http::InternalServerError);
 }
