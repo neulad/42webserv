@@ -29,6 +29,8 @@ void http::webbuf::setCursor(size_t newCursor) { this->cursor = newCursor; }
 size_t http::webbuf::getSize() { return size; }
 
 void http::webbuf::readBuf(int fd) {
+  if (this->cursor == this->size)
+    cursor = 0;
   int nbytes = read(fd, this->buffer + cursor, this->size - cursor);
   if (nbytes < 0)
     throw std::runtime_error("error reading");
@@ -359,11 +361,11 @@ void http::Connection::hndlIncStrm(int event_fd) {
     if (buffer[cursor]) {
       this->curReq.setBody(buffer + cursor);
       this->bodyReadBytes = this->buffers[curBuf]->getCursor() - this->cursor;
+      this->cursor += bodyReadBytes;
       this->curReq.setBodyLength(bodyReadBytes);
 
       if (this->bodyReadBytes >= contentLength) {
         status = ALL_DONE;
-        cursor += contentLength;
         if (buffer[cursor])
           status = NEXT_REQUEST;
         return;
@@ -371,9 +373,13 @@ void http::Connection::hndlIncStrm(int event_fd) {
     } else
       curReq.setBody(NULL);
     status = BODY_STARTED;
+
     std::ostringstream oss;
     oss << event_fd;
     std::string event_fd_str = oss.str();
+
+    if (this->buffers[curBuf]->getCursor() == this->buffers[curBuf]->getSize())
+      this->cursor = 0;
     std::string filePath = "tmp/" + event_fd_str;
     curReq.setBodyPath(filePath);
     if (bodyFd == -1) {

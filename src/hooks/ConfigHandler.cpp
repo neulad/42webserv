@@ -117,7 +117,6 @@ void checkAndSetFilePath(http::Request const &req, http::Response &res,
   res.setHeader("Content-Type", utils::getMimeType(redirectUrl));
   file.close();
 }
-
 std::string listDirectoryAsLinks(const std::string &directoryPath,
                                  std::string currentUrl) {
   DIR *dir = opendir(directoryPath.c_str());
@@ -126,24 +125,88 @@ std::string listDirectoryAsLinks(const std::string &directoryPath,
   }
 
   struct dirent *entry;
-  std::ostringstream htmlList;
+  std::ostringstream html;
 
-  htmlList << "<ul>\n";
+  // Build the complete HTML page with styles and JavaScript
+  html << "<!DOCTYPE html>\n"
+       << "<html lang=\"en\">\n"
+       << "<head>\n"
+       << "<meta charset=\"UTF-8\">\n"
+       << "<title>Directory Listing</title>\n"
+       << "<style>\n"
+       << "  body { font-family: Arial, sans-serif; margin: 20px; }\n"
+       << "  .file-list { list-style: none; padding: 0; }\n"
+       << "  .file-item { \n"
+       << "    padding: 10px; \n"
+       << "    margin: 5px 0; \n"
+       << "    background: #f5f5f5; \n"
+       << "    border-radius: 4px; \n"
+       << "    display: flex; \n"
+       << "    justify-content: space-between; \n"
+       << "    align-items: center; \n"
+       << "  }\n"
+       << "  .file-link { \n"
+       << "    color: #2c3e50; \n"
+       << "    text-decoration: none; \n"
+       << "  }\n"
+       << "  .file-link:hover { text-decoration: underline; }\n"
+       << "  .delete-btn { \n"
+       << "    background: #e74c3c; \n"
+       << "    color: white; \n"
+       << "    border: none; \n"
+       << "    padding: 5px 10px; \n"
+       << "    border-radius: 3px; \n"
+       << "    cursor: pointer; \n"
+       << "  }\n"
+       << "  .delete-btn:hover { background: #c0392b; }\n"
+       << "</style>\n"
+       << "</head>\n"
+       << "<body>\n"
+       << "<h2>Directory Contents</h2>\n"
+       << "<ul class=\"file-list\">\n";
+
+  // List directory contents
   while ((entry = readdir(dir)) != NULL) {
     std::string filename = entry->d_name;
+    std::string fileUrl = currentUrl + "/" + filename;
 
     // Skip "." and ".." special entries
     if (filename == "." || filename == "..") {
       continue;
     }
 
-    htmlList << "<li><a href=\"" << currentUrl + "/" + filename << "\">"
-             << filename << "</a></li>" << std::endl;
+    html << "  <li class=\"file-item\">\n"
+         << "    <a href=\"" << filename << "\" class=\"file-link\">"
+         << filename << "</a>\n"
+         << "    <button class=\"delete-btn\" onclick=\"deleteFile('"
+         << filename << "')\">Delete</button>\n"
+         << "  </li>\n";
   }
-  htmlList << "</ul>\n";
+
+  html << "</ul>\n"
+       << "<script>\n"
+       << "function deleteFile(url) {\n"
+       << "  if (confirm('Are you sure you want to delete this file?')) {\n"
+       << "    fetch(url, { method: 'DELETE' })\n"
+       << "      .then(response => {\n"
+       << "        if (response.ok) {\n"
+       << "          location.reload(); // Refresh page on success\n"
+       << "        } else {\n"
+       << "          alert('Failed to delete file');\n"
+       << "        }\n"
+       << "      })\n"
+       << "      .catch(error => {\n"
+       << "        console.error('Error:', error);\n"
+       << "        alert('Error deleting file');\n"
+       << "      });\n"
+       << "  }\n"
+       << "}\n"
+       << "</script>\n"
+       << "</body>\n"
+       << "</html>";
 
   closedir(dir);
-  return htmlList.str();
+  return html.str();
 }
 
 void rtrimCharacters(std::string &str, const std::string &charsToRemove) {
@@ -174,6 +237,7 @@ void ConfigHandler::operator()(http::Request const &req,
 
     if (res.getPort() != cnfg.port)
       continue;
+
     try {
       routeIter route_iter = cnfg.routes.begin();
       routeIter route_end = cnfg.routes.end();

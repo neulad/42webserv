@@ -220,9 +220,9 @@ public:
 class Connection {
 private:
   Request curReq;
-  webbuf *buffers[2];
   char *bodyBuffer;
   size_t curBuf;
+  webbuf *buffers[2];
   int cursor;
   int rnrnCounter;
   int reqLen;

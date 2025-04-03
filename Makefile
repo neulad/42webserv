@@ -1,5 +1,5 @@
 NAME := webserv
-CPP_FLAGS := -Wall -Wextra -Werror -std=c++98 -g
+CPP_FLAGS := -Wall -Wextra -Werror -std=c++98
 
 SRC := src/main.cpp src/server/server.cpp src/server/Config.cpp src/server/FilefdFactory.cpp \
 	src/http/http.cpp src/server/ConnectionFactory.cpp src/hooks/HandleCGI.cpp \
@@ -9,10 +9,10 @@ OBJS := $(SRC:.cpp=.o)
 all: $(NAME)
 
 .cpp.o:
-	c++ $(CPP_FLAGS) -c $< -o $@
+	c++ $(CPP_FLAGS) -c -g $< -o $@
 
 $(NAME): $(OBJS)
-	c++ $(CPP_FLAGS) $^ -o $(NAME)
+	c++ $(CPP_FLAGS) $^ -g -o $(NAME)
 
 clean:
 	rm -rf $(OBJS)
@@ -20,7 +20,7 @@ fclean: clean
 	rm -rf $(NAME)
 re: fclean all
 test:
-	c++ $(SRC) -Wall -Wextra -Werror -o test
+	c++ $(SRC) -Wall -Wextra -Werror -g -o test
 
 .PHONY: all clean fclean re test
 
