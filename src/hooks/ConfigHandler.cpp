@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -220,6 +221,28 @@ void rtrimCharacters(std::string &str, const std::string &charsToRemove) {
   }
 }
 
+std::string decodeUrlEncoded(const std::string &encoded) {
+  std::string decoded;
+
+  for (size_t i = 0; i < encoded.size(); ++i) {
+    if (encoded[i] == '%' && i + 2 < encoded.size() &&
+        std::isxdigit(encoded[i + 1]) && std::isxdigit(encoded[i + 2])) {
+      // Extract the two hex digits
+      std::string hex = encoded.substr(i + 1, 2);
+      unsigned int value;
+      // Parse hex string to integer using sscanf
+      sscanf(hex.c_str(), "%x", &value);
+      // Convert to char and append
+      decoded += static_cast<char>(value);
+      i += 2; // Skip the two hex digits
+    } else {
+      decoded += encoded[i]; // Copy character as-is
+    }
+  }
+
+  return decoded;
+}
+
 // Core
 void ConfigHandler::operator()(http::Request const &req,
                                http::Response &res) const {
@@ -314,7 +337,7 @@ void ConfigHandler::operator()(http::Request const &req,
             foundMatch->second.root + "/" +
             std::string(req.getUri()).substr(foundMatch->first.length());
         if (req.getMethod() == "DELETE") {
-          remove(redirectUrl.c_str());
+          remove(decodeUrlEncoded(redirectUrl).c_str());
           res.setStatusCode(http::NoContent);
           res.setStatusMessage(utils::getHttpStatusMessage(http::NoContent));
           res.setHeader("Content-Length", "7");
