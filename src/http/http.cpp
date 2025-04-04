@@ -164,6 +164,7 @@ http::Connection::Connection(srvparams const &params)
 http::Connection::~Connection() {
   delete buffers[0];
   delete buffers[1];
+  delete[] bodyBuffer;
 }
 
 void http::Connection::hndlIncStrm(int event_fd) {
@@ -190,6 +191,8 @@ void http::Connection::hndlIncStrm(int event_fd) {
   if (status >= ALL_DONE) {
     status = NOTHING_DONE;
     reqLen = 0;
+    if (!curReq.getBodyPath().empty())
+      std::remove(curReq.getBodyPath().c_str());
     curReq = Request();
   }
 
@@ -382,6 +385,7 @@ void http::Connection::hndlIncStrm(int event_fd) {
       this->cursor = 0;
     std::string filePath = "tmp/" + event_fd_str;
     curReq.setBodyPath(filePath);
+    std::cout << "Set Body Path: " << filePath << std::endl;
     if (bodyFd == -1) {
       bodyFd = open(filePath.c_str(), O_CREAT | O_WRONLY, 0644);
     }
